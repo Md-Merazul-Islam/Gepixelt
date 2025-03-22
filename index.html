@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Email Confirmation</title>
+    <title>Passwort Zurücksetzen</title>
     <style>
       body,
       table,
@@ -24,17 +24,6 @@
         justify-content: center;
         align-items: center;
       }
-      .cta-button {
-        display: inline-block;
-        background-color: #de3a3a;
-        color: #ffffff;
-        padding: 14px 24px;
-        text-decoration: none;
-        font-size: 18px;
-        font-weight: bold;
-        border-radius: 6px;
-        text-align: center;
-      }
     </style>
   </head>
   <body
@@ -42,7 +31,7 @@
       margin: 0;
       height: 100vh;
       padding: 0;
-      background-image: linear-gradient(to bottom right, #de3a3a, #6c1307);
+      background-image: linear-gradient(to bottom right,  #de3a3a, #6c1307);
       background-size: cover;
       background-position: center;
     "
@@ -61,8 +50,8 @@
       >
         <div class="flex-center" style="padding: 40px 40px 20px">
           <img
-            src="https://res.cloudinary.com/dnsorselg/image/upload/v1740109783/uploads/uesajhwkt6lrxro7ezps.png"
-            alt="Axiom Cyber Logo"
+            src="https://res.cloudinary.com/dnsorselg/image/upload/v1742626355/logo_p1rbam.png"
+            alt="Preissler’s Frühstück Logo"
             style="width: auto; height: 100px"
           />
         </div>
@@ -77,55 +66,61 @@
               text-align: center;
             "
           >
-            Welcome to Axiom Cyber!
+            Setzen Sie Ihr Passwort Zurück
           </h1>
         </div>
 
         <div style="padding: 0 40px 30px">
           <p style="color: #4b5563; margin-bottom: 20px; text-align: center">
-            Thank you for registering with us. We're excited to have you on board!
-          </p>
-          <p style="color: #4b5563; text-align: center">
-            To complete your registration and verify your email, please click the button below:
+            Wir haben eine Anfrage zum Zurücksetzen Ihres Passworts erhalten. Um fortzufahren, verwenden Sie bitte den folgenden OTP-Code:
           </p>
         </div>
 
         <div class="flex-center" style="padding: 0 40px 30px">
-          <a href="{{ confirm_link }}" class="cta-button">Verify Your Email</a>
-        </div>
-
-        <div style="padding: 0 40px 30px">
-          <p style="color: #4b5563; text-align: center">
-            If the button above doesn't work, copy and paste the following link into your browser:
-          </p>
-          <p style="text-align: center">
-            <a href="{{ confirm_link }}" style="color: #de3a3a">{{ confirm_link }}</a>
-          </p>
-          <p style="color: #4b5563; text-align: center">
-            Alternatively, use the following verification code:
-          </p>
-
+          <div
+            style="
+              background-color:  #de3a3a;
+              border-radius: 6px;
+              padding:16px 100px;
+              font-size: 24px;
+              font-weight: bold;
+              color: #ffffff;
+              text-align: center;
+            "
+          >
+            {{ otp }}
+          </div>
         </div>
 
         <div style="padding: 0 40px 20px">
           <p
-            style="color: #4b5563; font-size: 14px; margin-bottom: 10px; text-align: center"
+            style="
+              color: #4b5563;
+              font-size: 14px;
+              margin-bottom: 10px;
+              text-align: center;
+            "
           >
-            This verification link and code will expire in 24 hours.
+            Dieser OTP-Code verfällt in 10 Minuten. Bitte geben Sie diesen OTP-Code im vorgesehenen Feld ein, um Ihr Passwort zurückzusetzen.
           </p>
           <p style="color: #4b5563; font-size: 14px; text-align: center">
-            If you didn’t create an account, please ignore this email or contact our support team.
+            Falls Sie diese Anfrage nicht gestellt haben, ignorieren Sie bitte diese E-Mail.
           </p>
         </div>
 
         <div style="padding: 30px 40px; border-top: 1px solid #e5e7eb">
           <p
-            style="color: #6b7280; font-size: 12px; text-align: center; margin-bottom: 10px"
+            style="
+              color: #6b7280;
+              font-size: 12px;
+              text-align: center;
+              margin-bottom: 10px;
+            "
           >
-            This is an automated message, please do not reply to this email.
+            Dies ist eine automatische Nachricht, bitte antworten Sie nicht auf diese E-Mail.
           </p>
           <p style="color: #6b7280; font-size: 12px; text-align: center">
-            &copy; 2025 Axiom Cyber. All rights reserved.
+            &copy; 2025 Preissler’s Frühstück. Alle Rechte vorbehalten.
           </p>
         </div>
       </div>

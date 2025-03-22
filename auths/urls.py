@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     RegisterAPIView, LoginView, 
-    LogoutView, RefreshTokenView, ForgotPasswordView,  PasswordChangeView, ResetPasswordView, ProfileView, 
+    LogoutView, RefreshTokenView, ForgotPasswordView,  PasswordChangeView, ResetPasswordView, ProfileView, PostalCodeView,
     ValidateOTPView, AllUsers
 )
 
@@ -13,7 +13,7 @@ urlpatterns = [
     # for admin
     path('', include(router.urls)),
     path('register/', RegisterAPIView.as_view(), name='register'),
-    path('login', LoginView.as_view(), name='login'),
+    path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('token/refresh/', RefreshTokenView.as_view(), name='token_refresh'),
@@ -21,9 +21,11 @@ urlpatterns = [
     # --- password_change
     path('password-change/', PasswordChangeView.as_view(), name='password_change'),
     # --forgot_password
-    path('forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
+    path('otp-send/', ForgotPasswordView.as_view(), name='forgot_password'),
     path('validate-otp/', ValidateOTPView.as_view(), name='validate_otp'),
-    path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
-
+    path('set-new-password/', ResetPasswordView.as_view(), name='reset_password'),
+    
+    #check postal code 
+    path('postal-code/',PostalCodeView.as_view(),name='postal-code')
 
 ]

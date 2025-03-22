@@ -21,7 +21,6 @@ from .serializers import (
     UserRegisterSerializer, LoginSerializer, UserSerializer,
     ForgotPasswordSerializer, ResetPasswordSerializer, PasswordChangeSerializer, CustomUserAllSerializer
 )
-
 from rest_framework.authentication import TokenAuthentication
 
 
@@ -52,6 +51,21 @@ def failure_response(message, error, status_code=status.HTTP_400_BAD_REQUEST):
 def is_valid_postal_code(postal_code):
     return postal_code.startswith('9')
 
+class PostalCodeView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        postal_code = request.data.get("postal_code")
+        if is_valid_postal_code(postal_code):
+            email = request.data.get("email")  
+            user = get_user_model().objects.filter(email=email).first()
+            
+            if user:
+                return Response({"message": "User already registered, redirecting to login."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"message": "User is new, redirecting to registration."}, status=status.HTTP_200_OK)
+        
+        return Response({"error": "Postal code is not valid. It should start with '9'."}, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
@@ -85,7 +99,7 @@ class CustomRefreshToken(RefreshToken):
 
         return refresh_token
 
-
+from django.contrib.auth.backends import ModelBackend
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
     serializer_class = UserRegisterSerializer
@@ -94,11 +108,11 @@ class RegisterAPIView(APIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            
             if not user.is_active:
                 user.is_active = True
-                user.is_verified = True
                 user.save()
-            user = serializer.validated_data['user']
+            # user = serializer.validated_data['user']
 
             refresh = CustomRefreshToken.for_user(user)
             access_token = str(refresh.access_token)
@@ -114,7 +128,7 @@ class RegisterAPIView(APIView):
 
             response.set_cookie('refresh_token', refresh_token,
                                 httponly=True, secure=True)
-            login(request, user)
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             return response
 
         return failure_response('Something went wrong.', serializer.errors)
@@ -231,6 +245,8 @@ class PasswordChangeView(APIView):
 
 class ForgotPasswordView(APIView):
     """Send OTP to user's email for password reset"""
+    permission_classes= [AllowAny]
+    authentication_classes = [TokenAuthentication]
 
     def post(self, request):
         serializer = ForgotPasswordSerializer(data=request.data)

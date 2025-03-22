@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Email Confirmation</title>
+    <style>
+      body,
+      table,
+      td,
+      div,
+      p {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        line-height: 1.4;
+      }
+      img {
+        border: 0;
+        display: block;
+      }
+      .flex-center {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .cta-button {
+        display: inline-block;
+        background-color: #de3a3a;
+        color: #ffffff;
+        padding: 14px 24px;
+        text-decoration: none;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 6px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      height: 100vh;
+      padding: 0;
+      background-image: linear-gradient(to bottom right, #de3a3a, #6c1307);
+      background-size: cover;
+      background-position: center;
+    "
+  >
+    <div style="width: 100%; padding: 40px 0">
+      <div
+        style="
+          max-width: 600px;
+          width: 100%;
+          margin: 0 auto;
+          background-color: #ffffff;
+          border-radius: 8px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+        "
+      >
+        <div class="flex-center" style="padding: 40px 40px 20px">
+          <img
+            src="https://res.cloudinary.com/dnsorselg/image/upload/v1740109783/uploads/uesajhwkt6lrxro7ezps.png"
+            alt="Axiom Cyber Logo"
+            style="width: auto; height: 100px"
+          />
+        </div>
+
+        <div class="flex-center" style="padding: 0 40px 20px">
+          <h1
+            style="
+              color: #111827;
+              font-size: 24px;
+              font-weight: bold;
+              margin: 0;
+              text-align: center;
+            "
+          >
+            Welcome to Axiom Cyber!
+          </h1>
+        </div>
+
+        <div style="padding: 0 40px 30px">
+          <p style="color: #4b5563; margin-bottom: 20px; text-align: center">
+            Thank you for registering with us. We're excited to have you on board!
+          </p>
+          <p style="color: #4b5563; text-align: center">
+            To complete your registration and verify your email, please click the button below:
+          </p>
+        </div>
+
+        <div class="flex-center" style="padding: 0 40px 30px">
+          <a href="{{ confirm_link }}" class="cta-button">Verify Your Email</a>
+        </div>
+
+        <div style="padding: 0 40px 30px">
+          <p style="color: #4b5563; text-align: center">
+            If the button above doesn't work, copy and paste the following link into your browser:
+          </p>
+          <p style="text-align: center">
+            <a href="{{ confirm_link }}" style="color: #de3a3a">{{ confirm_link }}</a>
+          </p>
+          <p style="color: #4b5563; text-align: center">
+            Alternatively, use the following verification code:
+          </p>
+
+        </div>
+
+        <div style="padding: 0 40px 20px">
+          <p
+            style="color: #4b5563; font-size: 14px; margin-bottom: 10px; text-align: center"
+          >
+            This verification link and code will expire in 24 hours.
+          </p>
+          <p style="color: #4b5563; font-size: 14px; text-align: center">
+            If you didn’t create an account, please ignore this email or contact our support team.
+          </p>
+        </div>
+
+        <div style="padding: 30px 40px; border-top: 1px solid #e5e7eb">
+          <p
+            style="color: #6b7280; font-size: 12px; text-align: center; margin-bottom: 10px"
+          >
+            This is an automated message, please do not reply to this email.
+          </p>
+          <p style="color: #6b7280; font-size: 12px; text-align: center">
+            &copy; 2025 Axiom Cyber. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

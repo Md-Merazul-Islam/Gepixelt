@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     'auths',
     'products',
     'cart',
-    'payments',
+    # 'payments',
 
 
 
@@ -345,5 +345,5 @@ MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
 
 STRIPE_TEST_SECRET_KEY = os.getenv("STRIPE_TEST_SECRET_KEY")
 STRIPE_ENDPOINT_SECRET= os.getenv("STRIPE_ENDPOINT_SECRET")
-STRIPE_TEST_PUBLIC_KEY = os.getenv("STRIPE_TEST_PUBLIC_KEY")
+# STRIPE_TEST_PUBLIC_KEY = os.getenv("STRIPE_TEST_PUBLIC_KEY")
 

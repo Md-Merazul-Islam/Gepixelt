@@ -1,129 +1,57 @@
 <!DOCTYPE html>
-<html lang="de">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Passwort Zurücksetzen</title>
-    <style>
-      body,
-      table,
-      td,
-      div,
-      p {
-        margin: 0;
-        padding: 0;
-        font-family: Arial, sans-serif;
-        line-height: 1.4;
-      }
-      img {
-        border: 0;
-        display: block;
-      }
-      .flex-center {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-    </style>
-  </head>
-  <body
-    style="
-      margin: 0;
-      height: 100vh;
-      padding: 0;
-      background-image: linear-gradient(to bottom right,  #de3a3a, #6c1307);
-      background-size: cover;
-      background-position: center;
-    "
-  >
-    <div style="width: 100%; padding: 40px 0">
-      <div
-        style="
-          max-width: 600px;
-          width: 100%;
-          margin: 0 auto;
-          background-color: #ffffff;
-          border-radius: 8px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-        "
-      >
-        <div class="flex-center" style="padding: 40px 40px 20px">
-          <img
-            src="https://res.cloudinary.com/dnsorselg/image/upload/v1742626355/logo_p1rbam.png"
-            alt="Preissler’s Frühstück Logo"
-            style="width: auto; height: 100px"
-          />
-        </div>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>Checkout</h1>
 
-        <div class="flex-center" style="padding: 0 40px 20px">
-          <h1
-            style="
-              color: #111827;
-              font-size: 24px;
-              font-weight: bold;
-              margin: 0;
-              text-align: center;
-            "
-          >
-            Setzen Sie Ihr Passwort Zurück
-          </h1>
-        </div>
+    <!-- Checkout button to initiate the payment -->
+    <button id="checkout-button">Checkout</button>
 
-        <div style="padding: 0 40px 30px">
-          <p style="color: #4b5563; margin-bottom: 20px; text-align: center">
-            Wir haben eine Anfrage zum Zurücksetzen Ihres Passworts erhalten. Um fortzufahren, verwenden Sie bitte den folgenden OTP-Code:
-          </p>
-        </div>
+    <!-- Placeholder to display the session ID -->
+    <p id="session-id-display"></p>  <!-- This will show the session ID -->
 
-        <div class="flex-center" style="padding: 0 40px 30px">
-          <div
-            style="
-              background-color:  #de3a3a;
-              border-radius: 6px;
-              padding:16px 100px;
-              font-size: 24px;
-              font-weight: bold;
-              color: #ffffff;
-              text-align: center;
-            "
-          >
-            {{ otp }}
-          </div>
-        </div>
+    <script type="text/javascript">
+        var stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu');  // Replace with your Stripe public key
+        var checkoutButton = document.getElementById('checkout-button');
+        var sessionIdDisplay = document.getElementById('session-id-display');  // Reference to the paragraph to display session ID
 
-        <div style="padding: 0 40px 20px">
-          <p
-            style="
-              color: #4b5563;
-              font-size: 14px;
-              margin-bottom: 10px;
-              text-align: center;
-            "
-          >
-            Dieser OTP-Code verfällt in 10 Minuten. Bitte geben Sie diesen OTP-Code im vorgesehenen Feld ein, um Ihr Passwort zurückzusetzen.
-          </p>
-          <p style="color: #4b5563; font-size: 14px; text-align: center">
-            Falls Sie diese Anfrage nicht gestellt haben, ignorieren Sie bitte diese E-Mail.
-          </p>
-        </div>
-
-        <div style="padding: 30px 40px; border-top: 1px solid #e5e7eb">
-          <p
-            style="
-              color: #6b7280;
-              font-size: 12px;
-              text-align: center;
-              margin-bottom: 10px;
-            "
-          >
-            Dies ist eine automatische Nachricht, bitte antworten Sie nicht auf diese E-Mail.
-          </p>
-          <p style="color: #6b7280; font-size: 12px; text-align: center">
-            &copy; 2025 Preissler’s Frühstück. Alle Rechte vorbehalten.
-          </p>
-        </div>
-      </div>
-    </div>
-  </body>
+        checkoutButton.addEventListener('click', function () {
+            // Send a POST request to create a checkout session
+            fetch('http://127.0.0.1:8000/api/v1/payment/checkout/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQyNzE5Nzk1LCJpYXQiOjE3NDI3MTM3OTUsImp0aSI6IjRhMzg3ZTllNGIxZDQ3M2Y4ZDA2YTlmMDViMTljNzlmIiwidXNlcl9pZCI6OSwidXNlcm5hbWUiOiJtZG1lcmF6dWw2NSIsImVtYWlsIjoibWRtZXJhenVsNjVAZ21haWwuY29tIiwicm9sZSI6InVzZXIifQ.6cdzAR6DyhGmAjgxnloC-atgiVwxhEKpFaEUX-w0XYk'  // Ensure the user is authenticated
+                }
+            })
+            .then(function (response) {
+                return response.json();  // Get the session data from the backend
+            })
+            .then(function (data) {
+                if (data.error) {
+                    alert(data.error);  // Show error if any
+                    return;
+                }
+                // Show the session ID in the console and on the webpage
+                console.log('Session ID:', data.id);  // Log the session ID in the console
+                sessionIdDisplay.textContent = 'Session ID: ' + data.id;  // Display session ID in the paragraph
+                // Redirect to Stripe Checkout page using the session ID
+                return stripe.redirectToCheckout({ sessionId: data.id });
+            })
+            .then(function (result) {
+                if (result.error) {
+                    alert(result.error.message);
+                }
+            })
+            .catch(function (error) {
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
 </html>

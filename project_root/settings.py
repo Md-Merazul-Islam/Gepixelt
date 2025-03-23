@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'auths',
     'products',
     'cart',
+    'payments',
 
 
 
@@ -341,3 +342,8 @@ MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
 
 # Static files (only if using DigitalOcean Spaces for static assets)
 # STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/static/"
+
+STRIPE_TEST_SECRET_KEY = os.getenv("STRIPE_TEST_SECRET_KEY")
+STRIPE_ENDPOINT_SECRET= os.getenv("STRIPE_ENDPOINT_SECRET")
+STRIPE_TEST_PUBLIC_KEY = os.getenv("STRIPE_TEST_PUBLIC_KEY")
+

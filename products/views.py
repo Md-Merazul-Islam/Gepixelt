@@ -60,7 +60,13 @@ class ReadOnlyCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 class ReadOnlyProductViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [AllowAny]  # Allow public access to the API
+    permission_classes = [AllowAny]  
+    pagination_class=CustomPagination
+    def get_queryset(self):
+        category_id = self.request.query_params.get('category', None)
+        if category_id:
+            return Product.objects.filter(category_id=category_id)
+        return Product.objects.all()
 
     def list(self, request, *args, **kwargs):
         products = self.get_queryset()

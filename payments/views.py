@@ -20,6 +20,7 @@ from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+from. serializers import UserSubscriptionSerializer
 
 
 def success_response(message, data, status_code=status.HTTP_200_OK):
@@ -139,103 +140,6 @@ def success_response(message, data=None, status_code=200):
     return Response({"detail": message, "data": data}, status=status_code)
 
 
-# class CompletePaymentView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request, plan_id):
-#         user = request.user
-#         user_email = request.data.get("email")
-#         payment_method_id = request.data.get("payment_method_id")
-#         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
-
-#         # Ensure payment_method_id is provided
-#         if not payment_method_id:
-#             return failure_response("Payment method ID is required.", {}, status_code=400)
-
-#         try:
-#             # Check if the user already has a Stripe Customer ID
-#             if not user.stripe_customer_id:
-#                 customer = stripe.Customer.create(
-#                     email=user_email,
-#                     name=user.username
-#                 )
-#                 user.stripe_customer_id = customer.id
-#                 user.save()
-
-#             # Attach PaymentMethod to the Customer
-#             stripe.PaymentMethod.attach(
-#                 payment_method_id,
-#                 customer=user.stripe_customer_id
-#             )
-
-#             # Create a PaymentIntent using the Customer and attached PaymentMethod
-#             payment_intent = stripe.PaymentIntent.create(
-#                 amount=int(plan.price * 100),  # Convert to cents
-#                 currency="usd",
-#                 customer=user.stripe_customer_id,
-#                 payment_method=payment_method_id,
-#                 confirm=True,
-#                 receipt_email=user_email,
-#                 automatic_payment_methods={
-#                     "enabled": True, "allow_redirects": "never"
-#                 }
-#             )
-
-#             # Save Payment Data in Database
-#             payment = Transaction.objects.create(
-#                 user=user,
-#                 plan=plan,
-#                 transaction_id=payment_intent.id,
-#                 amount=plan.price,
-#                 payment_status="SUCCESS"
-#             )
-
-#             # Create UserSubscription
-#             UserSubscription.objects.create(user=user, plan=plan)
-
-#             # Send Subscription Confirmation Email
-#             subject = f"Subscription Confirmation: {plan.name}"
-#             message = f"""
-#             Hello {user.username},
-
-#             Congratulations! You have successfully subscribed to the "{plan.name}" plan.
-
-#             Here are your payment details:
-#             - Plan: {plan.name}
-#             - Amount Paid: ${plan.price}
-#             - Transaction ID: {payment.transaction_id}
-
-#             You can now access the benefits of your subscription.
-
-#             Best Regards,
-#             Your Subscription Team
-#             """
-#             send_mail(
-#                 subject,
-#                 message,
-#                 settings.DEFAULT_FROM_EMAIL,
-#                 [user_email],
-#                 fail_silently=False,
-#             )
-
-#             return success_response(f"Successfully subscribed to {plan.name}.", {
-#                 "user_id": user.id,
-#                 "username": user.username,
-#                 "email": user_email,
-#                 "plan_id": plan.id,
-#                 "transaction_id": payment.transaction_id
-#             }, status_code=201)
-
-#         except stripe.error.CardError as e:
-#             return failure_response("Card error. Payment failed.", {"error": str(e)}, status_code=400)
-
-#         except stripe.error.StripeError as e:
-#             return failure_response("Payment processing error. Try again later.", {"error": str(e)}, status_code=500)
-
-#         except Exception as e:
-#             return failure_response(f"An error occurred: {str(e)}", {}, status_code=500)
-
-
 # Set your Stripe secret key
 stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
 
@@ -306,13 +210,20 @@ class CompletePaymentView(APIView):
                 if not created:
                     user_subscription.balance += plan.price  # Add plan price to the balance
                     user_subscription.status = 'active'  # Mark as active
+                    user_subscription.end_date = timezone.now(
+                    ) + timedelta(days=plan.duration_days)  # Set end date
                     user_subscription.save()
                 else:
                     # If it's a new subscription, set it to active and initial balance
+                    user_subscription.balance = plan.price
                     user_subscription.status = 'active'
+                    user_subscription.end_date = timezone.now(
+                    ) + timedelta(days=plan.duration_days)  # Set end date
                     user_subscription.save()
 
-                user.add_balance(plan.price)
+                # Update the user's balance after the transaction
+                user.balance += plan.price  # Add the subscription cost to the user balance
+                user.save()  # Save the updated user balance
 
                 # Send Subscription Confirmation Email
                 subject = f"Subscription Confirmation: {plan.name}"
@@ -358,6 +269,7 @@ class CompletePaymentView(APIView):
         except Exception as e:
             return Response({"detail": f"An error occurred: {str(e)}"}, status=500)
 
+
 # Transaction List API to view all transactions of a logged-in user
 class TransactionListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -370,3 +282,25 @@ class TransactionListView(APIView):
         serializer = TransactionSerializer(transactions, many=True)
 
         return success_response("Transaction list retrieved successfully.", serializer.data, status_code=200)
+
+
+class UserSubscriptionDetailView(APIView):
+    # permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            # Get the user's subscription
+            user_subscription = UserSubscription.objects.get(user=user)
+
+            # Serialize the data
+            serializer = UserSubscriptionSerializer(user_subscription)
+
+            return Response({
+                "detail": "User subscription data retrieved successfully.",
+                "data": serializer.data
+            }, status=200)
+        except UserSubscription.DoesNotExist:
+            return Response({
+                "detail": "No subscription found for the user."
+            }, status=404)

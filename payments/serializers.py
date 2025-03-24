@@ -1,7 +1,7 @@
 # serializers.py
 
 from rest_framework import serializers
-from .models import Order, OrderProduct, Product, SubscriptionPlan, UserSubscription,Transaction
+from .models import Order, OrderProduct, Product, SubscriptionPlan, UserSubscription, Transaction
 from django.contrib.auth import get_user_model
 from decimal import Decimal
 from django.utils import timezone
@@ -10,10 +10,13 @@ from datetime import timedelta
 User = get_user_model()
 
 # Product Serializer
+
+
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'name', 'price', 'description']  # Add any other fields you want to expose
+        # Add any other fields you want to expose
+        fields = ['id', 'name', 'price', 'description']
 
 
 # OrderProduct Serializer (many-to-many relationship between Order and Product)
@@ -22,18 +25,22 @@ class OrderProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderProduct
-        fields = ['product', 'quantity', 'price_per_item']  # Fields to include in the OrderProduct
+        # Fields to include in the OrderProduct
+        fields = ['product', 'quantity', 'price_per_item']
 
 
 # Order Serializer
 class OrderSerializer(serializers.ModelSerializer):
-    products = OrderProductSerializer(many=True)  # Many-to-many relation for products
-    total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    # Many-to-many relation for products
+    products = OrderProductSerializer(many=True)
+    total_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True)
     order_date = serializers.DateField()  # User inputs the order date
 
     class Meta:
         model = Order
-        fields = ['id', 'customer', 'products', 'order_date', 'total_price', 'create_date']
+        fields = ['id', 'customer', 'products',
+                  'order_date', 'total_price', 'create_date']
 
     def create(self, validated_data):
         # Extract product data from the validated data
@@ -43,7 +50,8 @@ class OrderSerializer(serializers.ModelSerializer):
         validated_data['create_date'] = timezone.now().date()
 
         # Create the Order instance
-        order = Order.objects.create(total_price=0, **validated_data)  # Temporary total price
+        order = Order.objects.create(
+            total_price=0, **validated_data)  # Temporary total price
 
         # Calculate the total price and save the order
         total_price = Decimal(0)
@@ -54,7 +62,8 @@ class OrderSerializer(serializers.ModelSerializer):
             total_price += price_per_item * quantity
 
             # Create OrderProduct instance
-            OrderProduct.objects.create(order=order, product=product, quantity=quantity, price_per_item=price_per_item)
+            OrderProduct.objects.create(
+                order=order, product=product, quantity=quantity, price_per_item=price_per_item)
 
         order.total_price = total_price
         order.save()  # Save the updated total_price to the order
@@ -87,11 +96,23 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+
 class TransactionSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField()  # to get the username instead of the user ID
+    # to get the username instead of the user ID
+    user = serializers.StringRelatedField()
     plan = SubscriptionPlanSerializer()
-    user_subscription = UserSubscriptionSerializer(source='user.usersubscription', read_only=True)
+    user_subscription = UserSubscriptionSerializer(
+        source='user.usersubscription', read_only=True)
 
     class Meta:
         model = Transaction
-        fields = ['id','transaction_id', 'plan', 'amount', 'payment_status', 'payment_intent_id', 'created_at','subscription_expiry_date', 'user', 'user_subscription']
+        fields = ['id', 'transaction_id', 'plan', 'amount', 'payment_status', 'payment_intent_id',
+                  'created_at', 'subscription_expiry_date', 'user', 'user_subscription']
+
+
+class UserSubscriptionSerializer(serializers.ModelSerializer):
+    plan = SubscriptionPlanSerializer()
+
+    class Meta:
+        model = UserSubscription
+        fields = ['user', 'plan', 'balance', 'start_date', 'end_date', 'status']

@@ -58,8 +58,8 @@ class UserSubscription(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    start_date = models.DateTimeField(auto_now_add=True)
-    end_date = models.DateTimeField()
+    start_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)  # This will store the subscription start date
+    end_date = models.DateTimeField(null=True, blank=True)  # This will store the subscription expiration date
     status = models.CharField(max_length=20, choices=[('active', 'Active'), ('inactive', 'Inactive')], default='inactive')
 
     def __str__(self):

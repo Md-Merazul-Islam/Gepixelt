@@ -1,37 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subscription Payment</title>
-    <script src="https://js.stripe.com/v3/"></script>
+    <title>Course Subscription Payment</title>
+    <script src="https://js.stripe.com/v3/"></script> <!-- Load Stripe.js -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #card-element {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+    </style>
 </head>
+
 <body>
 
-    <h2>Select a Subscription Plan</h2>
+    <h2>Subscribe to a Plan</h2>
 
-    <!-- Dropdown for subscription plan -->
-    <select id="plan-select">
-        <option value="">Select a plan</option>
-    </select>
+    <form id="payment-form">
+        <label>Email:</label>
+        <input type="email" id="email" required><br><br>
 
-    <div id="plan-details">
-        <p>Price: <span id="plan-price"></span></p>
-    </div>
+        <label>Choose a Subscription Plan:</label>
+        <select id="plan-select" required>
+            <option value="">Select a plan</option>
+        </select><br><br>
 
-    <button id="pay-button" disabled>Pay Now</button>
+        <label>Postal Code:</label>
+        <input type="text" id="postal-code" required><br><br>
 
-    <div id="card-element"></div> <!-- Stripe card element -->
+        <div id="card-element"><!-- Stripe Card Element will be inserted here --></div>
+        <button id="submit-button" disabled>Pay & Subscribe</button>
+    </form>
+
+    <p id="payment-message"></p> <!-- Payment status message -->
 
     <script>
-        const stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu');
+        // Load Stripe with your publishable key
+        const stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu');  // Replace with your Stripe public key
         const elements = stripe.elements();
-        const cardElement = elements.create('card');
-        cardElement.mount('#card-element');
+        const cardElement = elements.create("card");
+        cardElement.mount("#card-element");
 
         let selectedPlan = null;
 
-        // Fetch the list of subscription plans from the backend
+        // Fetch subscription plans from your backend and display them in a dropdown
         async function fetchSubscriptionPlans() {
             try {
                 const response = await fetch('http://127.0.0.1:8000/api/v1/payment/subscription-plans/');
@@ -49,93 +86,74 @@
             }
         }
 
-        // Update the plan details when a user selects a plan
-        document.getElementById('plan-select').addEventListener('change', async (event) => {
+        // Enable the submit button when a plan is selected
+        document.getElementById('plan-select').addEventListener('change', (event) => {
             selectedPlan = event.target.value;
-            if (!selectedPlan) {
-                document.getElementById('plan-price').textContent = '';
-                document.getElementById('pay-button').disabled = true;
+            document.getElementById('submit-button').disabled = !selectedPlan;
+        });
+
+        // Handle form submission when the user clicks "Pay & Subscribe"
+        document.querySelector("#payment-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            document.getElementById("submit-button").disabled = true;  // Disable button to prevent multiple submissions
+
+            const email = document.querySelector("#email").value;
+            const postalCode = document.querySelector("#postal-code").value;
+
+            // Create a Payment Method using Stripe
+            const { paymentMethod, error } = await stripe.createPaymentMethod({
+                type: "card",
+                card: cardElement,
+                billing_details: {
+                    email: email,
+                    address: {
+                        postal_code: postalCode  // Get the postal code value
+                    }
+                }
+            });
+
+            if (error) {
+                document.getElementById("payment-message").textContent = "Error: " + error.message;
+                document.getElementById("submit-button").disabled = false;
                 return;
             }
 
-            try {
-                const response = await fetch(`http://127.0.0.1:8000/api/v1/payment/subscription-plans/${selectedPlan}/`);
-                const planData = await response.json();
-                document.getElementById('plan-price').textContent = planData.price;
-                document.getElementById('pay-button').disabled = false;
-            } catch (error) {
-                console.error('Error fetching plan details:', error);
-            }
+            console.log("Payment Method ID:", paymentMethod.id);
+            alert("Payment Method ID: " + paymentMethod.id);  // For debugging
+
+            // Send the `payment_method_id`, `plan_id`, and `user_id` to the backend
+            fetch(`http://127.0.0.1:8000/api/v1/payment/complete-payment/${selectedPlan}/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQyODE1MjU2LCJpYXQiOjE3NDI4MDkyNTYsImp0aSI6IjFhNGVlNDI2MTRmYzRkZWU5N2RmNmIyOTU0YTM3YjRjIiwidXNlcl9pZCI6MSwidXNlcm5hbWUiOiJtZG1lcmF6dWw3NSIsImVtYWlsIjoibWRtZXJhenVsNzVAZ21haWwuY29tIiwicm9sZSI6InVzZXIifQ.tcTowI_SGi01ghQ5GUDfPXpqqvpbivcfI99FGbg_cW0"  // Replace with actual JWT token for authentication
+                },
+                body: JSON.stringify({
+                    email: email,
+                    plan_id: selectedPlan,
+                    user_id: 1,  // Replace with actual user ID
+                    payment_method_id: paymentMethod.id
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.detail === "Payment successful.") {
+                        document.getElementById("payment-message").textContent = "✅ Payment Successful! You are now subscribed.";
+                    } else {
+                        document.getElementById("payment-message").textContent = "❌ Payment Failed: " + data.detail;
+                        document.getElementById("submit-button").disabled = false;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById("payment-message").textContent = "❌ Payment Error: " + error.message;
+                    document.getElementById("submit-button").disabled = false;
+                });
         });
-
-        // Handle the payment process when user clicks "Pay Now"
-        document.getElementById('pay-button').addEventListener('click', async () => {
-            if (!selectedPlan) {
-                alert('Please select a subscription plan first.');
-                return;
-            }
-
-            try {
-                // Fetch the client secret from the backend to create the payment intent
-                const response = await fetch(`http://127.0.0.1:8000/api/v1/payment/subscription-plans/${selectedPlan}/`, {
-                    method: 'POST',
-                    body: JSON.stringify({ plan_id: selectedPlan }),
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                const paymentData = await response.json();
-
-                if (!paymentData.client_secret) {
-                    throw new Error('Failed to retrieve payment details.');
-                }
-
-                // Create a Stripe PaymentIntent using the client secret
-                const { error, paymentIntent } = await stripe.confirmCardPayment(paymentData.client_secret, {
-                    payment_method: {
-                        card: cardElement,
-                        billing_details: {
-                            name: 'Customer Name',
-                        },
-                    },
-                });
-
-                if (error) {
-                    console.error('Payment error:', error);
-                    alert('Payment failed!');
-                } else if (paymentIntent.status === 'succeeded') {
-                    const paymentIntentId = paymentIntent.id;
-                    const paymentMethodId = paymentIntent.payment_method;
-
-                    await sendTransactionData(paymentIntentId, paymentMethodId);
-                    alert('Payment succeeded! Transaction details saved.');
-                }
-            } catch (error) {
-                console.error('Error during payment process:', error);
-                alert('Something went wrong, please try again.');
-            }
-        });
-
-        // Send transaction details to backend after successful payment
-        async function sendTransactionData(transactionId, paymentMethodId) {
-            try {
-                const response = await fetch('http://127.0.0.1:8000/api/v1/payment/payment-subscription/', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        transaction_id: transactionId,
-                        payment_method_id: paymentMethodId,
-                        plan_id: selectedPlan
-                    }),
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                const result = await response.json();
-                console.log('Transaction details saved:', result);
-            } catch (error) {
-                console.error('Error sending transaction data:', error);
-            }
-        }
 
         // Initialize the subscription plans on page load
         fetchSubscriptionPlans();
     </script>
 
 </body>
+
 </html>

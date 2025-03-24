@@ -117,9 +117,10 @@
             }
 
             console.log("Payment Method ID:", paymentMethod.id);
+            alert("Payment Method ID: " + paymentMethod.id);  // For debugging
 
             // Send the `payment_method_id`, `plan_id`, and `user_id` to the backend
-            fetch(`http://127.0.0.1:8000/api/v1/payment/complete-payment/${selectedPlan}/`, {
+            fetch(`http://127.0.0.1:8000/api/v1/payment/scomplete-payment/${selectedPlan}/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

@@ -1,7 +1,7 @@
 # serializers.py
 
 from rest_framework import serializers
-from .models import Order, OrderProduct, Product, SubscriptionPlan, UserSubscription
+from .models import Order, OrderProduct, Product, SubscriptionPlan, UserSubscription,Transaction
 from django.contrib.auth import get_user_model
 from decimal import Decimal
 from django.utils import timezone
@@ -86,3 +86,12 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
         instance.end_date = validated_data.get('end_date', instance.end_date)
         instance.save()
         return instance
+
+class TransactionSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()  # to get the username instead of the user ID
+    plan = SubscriptionPlanSerializer()
+    user_subscription = UserSubscriptionSerializer(source='user.usersubscription', read_only=True)
+
+    class Meta:
+        model = Transaction
+        fields = ['transaction_id', 'plan', 'amount', 'payment_status', 'payment_intent_id', 'created_at', 'user', 'user_subscription']

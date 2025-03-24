@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -8,30 +9,23 @@ class Role(models.TextChoices):
     ADMIN = 'admin', 'Admin'
     USER = 'user', 'User'
 
-
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True, db_index=True)
     role = models.CharField(max_length=10, choices=Role.choices,
                             default=Role.USER, null=True, blank=True, db_index=True)
-    address = models.CharField(
-        max_length=255, null=True, blank=True, db_index=True)
-    city = models.CharField(max_length=255, null=True,
-                            blank=True, db_index=True)
-    postal_code = models.CharField(
-        max_length=255, null=True, blank=True, db_index=True)
-    phone_number = models.CharField(
-        max_length=15, null=True, blank=True, db_index=True)
+    address = models.CharField(max_length=255, null=True, blank=True, db_index=True)
+    city = models.CharField(max_length=255, null=True, blank=True, db_index=True)
+    postal_code = models.CharField(max_length=255, null=True, blank=True, db_index=True)
+    phone_number = models.CharField(max_length=15, null=True, blank=True, db_index=True)
     photo = models.CharField(max_length=255, blank=True, null=True)
-    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     stripe_customer_id = models.CharField(max_length=100, null=True)
     trial_status = models.BooleanField(default=True)
-    # subscription_plan = models.ForeignKey('UserSubscription', on_delete=models.SET_NULL, null=True, blank=True)
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
     def __str__(self):
         return self.email
-
 
     def add_balance(self, amount):
         """Add balance to the customer account."""
@@ -40,6 +34,14 @@ class CustomUser(AbstractUser):
 
     def deduct_balance(self, amount):
         """Deduct balance from the customer account."""
+        # Check if balance is None, and if so, set it to 0.00
+        if self.balance is None:
+            self.balance = Decimal('0.00')  # Ensure balance is initialized
+        
+        # Make sure amount is a Decimal (in case it's passed as a different type)
+        amount = Decimal(amount)
+
+        # Only deduct if sufficient balance is available
         if self.balance >= amount:
             self.balance -= amount
             self.save()

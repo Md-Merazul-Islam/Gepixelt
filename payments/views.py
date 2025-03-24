@@ -1,3 +1,4 @@
+from . serializers import UserSubscriptionSerializer
 from rest_framework.views import APIView
 from .models import SubscriptionPlan, UserSubscription, Transaction
 from rest_framework import status
@@ -20,7 +21,6 @@ from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
-from. serializers import UserSubscriptionSerializer
 
 
 def success_response(message, data, status_code=status.HTTP_200_OK):
@@ -87,48 +87,49 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
         return Response(UserSubscriptionSerializer(subscription).data)
 
 
-# Order ViewSet to create and list orders
-class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all()
-    serializer_class = OrderSerializer
-    # Only authenticated users can create/view orders
-    # permission_classes = [IsAuthenticated]
+class OrderListView(APIView):
+    def get(self, request):
+        """Retrieve a list of orders."""
+        orders = Order.objects.all()
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
 
-    def get_queryset(self):
-        """Return orders for the logged-in user"""
-        return self.queryset.filter(customer=self.request.user)
+    def post(self, request):
+        """Create a new order."""
+        serializer = OrderSerializer(data=request.data)
+        if serializer.is_valid():
+            order = serializer.save()
+            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def create(self, request, *args, **kwargs):
-        """Create a new order for a user"""
-        # Ensure that the total_price is correctly calculated before creating the order
-        order_data = request.data
-        products_data = order_data.get('products', [])
 
-        # Create the order with temporary data
-        order = Order(customer=request.user,
-                      order_date=order_data.get('order_date'))
-        order.save()
+class OrderDetailView(APIView):
+    def get(self, request, order_id):
+        """Retrieve a specific order."""
+        order = get_object_or_404(Order, id=order_id)
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
 
-        # Calculate the total price and create OrderProduct instances
-        total_price = Decimal(0)
-        for product_data in products_data:
-            product = get_object_or_404(Product, id=product_data['product'])
-            quantity = product_data['quantity']
-            price_per_item = product.price
-            total_price += price_per_item * quantity
-            # Create OrderProduct instances
-            OrderProduct.objects.create(
-                order=order, product=product, quantity=quantity, price_per_item=price_per_item)
+    def put(self, request, order_id):
+        """Update a specific order (e.g., adding/removing products)."""
+        order = get_object_or_404(Order, id=order_id)
+        serializer = OrderSerializer(order, data=request.data, partial=True)
+        if serializer.is_valid():
+            order = serializer.save()
+            return Response(OrderSerializer(order).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Save the total price to the order
-        order.total_price = total_price
-        order.save()
 
-        return Response(OrderSerializer(order).data)
+class OrderPlaceOrderView(APIView):
+    def post(self, request, order_id):
+        """Place the order if balance is sufficient."""
+        order = get_object_or_404(Order, id=order_id)
+        if order.place_order():
+            return Response({'message': 'Order placed successfully'}, status=status.HTTP_200_OK)
+        return Response({'message': 'Insufficient balance'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
-
 # Utility functions for response
 
 
@@ -304,3 +305,21 @@ class UserSubscriptionDetailView(APIView):
             return Response({
                 "detail": "No subscription found for the user."
             }, status=404)
+
+from.models import create_order_from_card
+class CreateOrderFromCardView(APIView):
+    def post(self, request):
+        # Get the user's card (assuming the user is authenticated)
+        user = request.user
+        card = user.card  # Assuming the card is related to the user
+
+        # Create an order from the card
+        try:
+            order = create_order_from_card(card)
+            return Response({
+                'message': 'Order placed successfully.',
+                'order_id': order.id,
+                'total_price': str(order.total_price)
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -1,3 +1,4 @@
+from cart.models import Card, CardItem
 from django.db import models
 from products.models import Product
 from django.contrib.auth import get_user_model
@@ -8,12 +9,15 @@ from datetime import timedelta
 User = get_user_model()
 
 # Order Model
+
+
 class Order(models.Model):
     customer = models.ForeignKey(User, on_delete=models.CASCADE)
     products = models.ManyToManyField(Product, through='OrderProduct')
     order_date = models.DateField()  # Date chosen by the user
     create_date = models.DateField(auto_now_add=True, blank=True, null=True)
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True)
 
     def __str__(self):
         return f"Order {self.id} by {self.customer.username}"
@@ -39,7 +43,8 @@ class OrderProduct(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
-    price_per_item = models.DecimalField(max_digits=10, decimal_places=2)
+    price_per_item = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True)
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity} for Order {self.order.id}"
@@ -48,19 +53,24 @@ class OrderProduct(models.Model):
 # Subscription Plan Model
 class SubscriptionPlan(models.Model):
     name = models.CharField(max_length=100)
-    duration_days = models.IntegerField()  # Number of days in the plan (e.g., 7 for weekly)
+    # Number of days in the plan (e.g., 7 for weekly)
+    duration_days = models.IntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
         return self.name
 
+
 class UserSubscription(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    start_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)  # This will store the subscription start date
-    end_date = models.DateTimeField(null=True, blank=True)  # This will store the subscription expiration date
-    status = models.CharField(max_length=20, choices=[('active', 'Active'), ('inactive', 'Inactive')], default='inactive')
+    # This will store the subscription start date
+    start_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    # This will store the subscription expiration date
+    end_date = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=[(
+        'active', 'Active'), ('inactive', 'Inactive')], default='inactive')
 
     def __str__(self):
         return f"{self.user.email} - {self.plan.name}"
@@ -72,6 +82,9 @@ class UserSubscription(models.Model):
 
     def deduct_balance(self, amount):
         """Deduct balance if the user has enough."""
+        if self.balance is None:  # Check for None
+            self.balance = Decimal('0.00')  # Set balance to 0 if it is None
+
         if self.balance >= amount:
             self.balance -= amount
             self.save()
@@ -79,26 +92,56 @@ class UserSubscription(models.Model):
         return False
 
 
-
 # Add method to the User model to check balance deduction
-User.add_to_class('deduct_balance', lambda self, amount: self.usersubscription.deduct_balance(amount))
+# User.add_to_class('deduct_balance', lambda self,amount: self.usersubscription.deduct_balance(amount))
+
 
 class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     transaction_id = models.CharField(max_length=255, null=True, blank=True)
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_status = models.CharField(max_length=20, choices=[('SUCCESS', 'Success'), ('FAILED', 'Failed')], default='FAILED')
+    payment_status = models.CharField(max_length=20, choices=[(
+        'SUCCESS', 'Success'), ('FAILED', 'Failed')], default='FAILED')
     payment_intent_id = models.CharField(max_length=255)
-    subscription_expiry_date = models.DateTimeField(blank=True,null=True)  # This will store the subscription expiration date
+    # This will store the subscription expiration date
+    subscription_expiry_date = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         # Automatically calculate subscription expiration date based on the plan's duration
         if not self.subscription_expiry_date:
             # If the expiration date is not set, calculate it using the plan's duration
-            self.subscription_expiry_date = timezone.now() + timedelta(days=self.plan.duration_days)
+            self.subscription_expiry_date = timezone.now(
+            ) + timedelta(days=self.plan.duration_days)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Transaction {self.payment_intent_id} for {self.user.username}"
+
+
+# Simple function to create an order from the card
+def create_order_from_card(card):
+    # Create a new order
+    order = Order.objects.create(customer=card.user, order_date='2025-03-25')
+
+    # Initialize the total price
+    total_price = Decimal(0.0)
+
+    # Loop through card items and create order products
+    for item in card.items.all():
+        # Create OrderProduct for each item
+        OrderProduct.objects.create(
+            order=order,
+            product=item.product,
+            quantity=item.quantity,
+            price_per_item=item.product.price
+        )
+        # Calculate the total price
+        total_price += item.product.price * item.quantity
+
+    # Update the order's total price
+    order.total_price = total_price
+    order.save()
+
+    return order

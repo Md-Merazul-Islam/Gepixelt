@@ -85,12 +85,20 @@ User.add_to_class('deduct_balance', lambda self, amount: self.usersubscription.d
 
 class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    transaction_id = models.CharField(max_length=255,null=True, blank=True)
+    transaction_id = models.CharField(max_length=255, null=True, blank=True)
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_status = models.CharField(max_length=20, choices=[('SUCCESS', 'Success'), ('FAILED', 'Failed')], default='FAILED')
     payment_intent_id = models.CharField(max_length=255)
+    subscription_expiry_date = models.DateTimeField(blank=True,null=True)  # This will store the subscription expiration date
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        # Automatically calculate subscription expiration date based on the plan's duration
+        if not self.subscription_expiry_date:
+            # If the expiration date is not set, calculate it using the plan's duration
+            self.subscription_expiry_date = timezone.now() + timedelta(days=self.plan.duration_days)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Transaction {self.payment_intent_id} for {self.user.username}"

@@ -302,16 +302,13 @@ class CompletePaymentView(APIView):
                 user_subscription, created = UserSubscription.objects.get_or_create(
                     user=user, plan=plan)
 
-               # If subscription exists, update the subscription details
+                # If subscription exists, update the subscription details
                 if not created:
                     user_subscription.balance += plan.price  # Add plan price to the balance
-                    user_subscription.end_date = timezone.now(
-                    ) + timedelta(days=plan.duration_days)  # Set end date
                     user_subscription.status = 'active'  # Mark as active
                     user_subscription.save()
                 else:
-                    # If it's a new subscription, set the end date and initial balance
-                    user_subscription.end_date = timezone.now() + timedelta(days=plan.duration_days)
+                    # If it's a new subscription, set it to active and initial balance
                     user_subscription.status = 'active'
                     user_subscription.save()
 
@@ -361,14 +358,13 @@ class CompletePaymentView(APIView):
         except Exception as e:
             return Response({"detail": f"An error occurred: {str(e)}"}, status=500)
 
-
 # Transaction List API to view all transactions of a logged-in user
 class TransactionListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        transactions = Transaction.objects.filter(user=user)
+        transactions = Transaction.objects.filter(user=user).order_by('-id')
 
         # Serialize the data
         serializer = TransactionSerializer(transactions, many=True)

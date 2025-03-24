@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Payment</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+
+    <h2>Select a Subscription Plan</h2>
+
+    <!-- Dropdown for subscription plan -->
+    <select id="plan-select">
+        <option value="">Select a plan</option>
+    </select>
+
+    <div id="plan-details">
+        <p>Price: <span id="plan-price"></span></p>
+    </div>
+
+    <button id="pay-button" disabled>Pay Now</button>
+
+    <div id="card-element"></div> <!-- Stripe card element -->
+
+    <script>
+        const stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu');
+        const elements = stripe.elements();
+        const cardElement = elements.create('card');
+        cardElement.mount('#card-element');
+
+        let selectedPlan = null;
+
+        // Fetch the list of subscription plans from the backend
+        async function fetchSubscriptionPlans() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/v1/payment/subscription-plans/');
+                const plans = await response.json();
+
+                const planSelect = document.getElementById('plan-select');
+                plans.forEach(plan => {
+                    const option = document.createElement('option');
+                    option.value = plan.id;
+                    option.textContent = `${plan.name} - $${plan.price}`;
+                    planSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error fetching subscription plans:', error);
+            }
+        }
+
+        // Update the plan details when a user selects a plan
+        document.getElementById('plan-select').addEventListener('change', async (event) => {
+            selectedPlan = event.target.value;
+            if (!selectedPlan) {
+                document.getElementById('plan-price').textContent = '';
+                document.getElementById('pay-button').disabled = true;
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/api/v1/payment/subscription-plans/${selectedPlan}/`);
+                const planData = await response.json();
+                document.getElementById('plan-price').textContent = planData.price;
+                document.getElementById('pay-button').disabled = false;
+            } catch (error) {
+                console.error('Error fetching plan details:', error);
+            }
+        });
+
+        // Handle the payment process when user clicks "Pay Now"
+        document.getElementById('pay-button').addEventListener('click', async () => {
+            if (!selectedPlan) {
+                alert('Please select a subscription plan first.');
+                return;
+            }
+
+            try {
+                // Fetch the client secret from the backend to create the payment intent
+                const response = await fetch(`http://127.0.0.1:8000/api/v1/payment/subscription-plans/${selectedPlan}/`, {
+                    method: 'POST',
+                    body: JSON.stringify({ plan_id: selectedPlan }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const paymentData = await response.json();
+
+                if (!paymentData.client_secret) {
+                    throw new Error('Failed to retrieve payment details.');
+                }
+
+                // Create a Stripe PaymentIntent using the client secret
+                const { error, paymentIntent } = await stripe.confirmCardPayment(paymentData.client_secret, {
+                    payment_method: {
+                        card: cardElement,
+                        billing_details: {
+                            name: 'Customer Name',
+                        },
+                    },
+                });
+
+                if (error) {
+                    console.error('Payment error:', error);
+                    alert('Payment failed!');
+                } else if (paymentIntent.status === 'succeeded') {
+                    const paymentIntentId = paymentIntent.id;
+                    const paymentMethodId = paymentIntent.payment_method;
+
+                    await sendTransactionData(paymentIntentId, paymentMethodId);
+                    alert('Payment succeeded! Transaction details saved.');
+                }
+            } catch (error) {
+                console.error('Error during payment process:', error);
+                alert('Something went wrong, please try again.');
+            }
+        });
+
+        // Send transaction details to backend after successful payment
+        async function sendTransactionData(transactionId, paymentMethodId) {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/v1/payment/payment-subscription/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        transaction_id: transactionId,
+                        payment_method_id: paymentMethodId,
+                        plan_id: selectedPlan
+                    }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                console.log('Transaction details saved:', result);
+            } catch (error) {
+                console.error('Error sending transaction data:', error);
+            }
+        }
+
+        // Initialize the subscription plans on page load
+        fetchSubscriptionPlans();
+    </script>
+
+</body>
+</html>

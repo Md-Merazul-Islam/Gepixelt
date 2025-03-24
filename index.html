@@ -3,55 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout</title>
-    <script src="https://js.stripe.com/v3/"></script>
+    <title>Course Subscription Payment</title>
+    <script src="https://js.stripe.com/v3/"></script> <!-- Load Stripe.js -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #card-element {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+    </style>
 </head>
 <body>
-    <h1>Checkout</h1>
 
-    <!-- Checkout button to initiate the payment -->
-    <button id="checkout-button">Checkout</button>
+    <h2>Subscribe to a Plan</h2>
 
-    <!-- Placeholder to display the session ID -->
-    <p id="session-id-display"></p>  <!-- This will show the session ID -->
+    <form id="payment-form">
+        <label>Email:</label>
+        <input type="email" id="email" required><br><br>
 
-    <script type="text/javascript">
-        var stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu');  // Replace with your Stripe public key
-        var checkoutButton = document.getElementById('checkout-button');
-        var sessionIdDisplay = document.getElementById('session-id-display');  // Reference to the paragraph to display session ID
+        <label>Choose a Subscription Plan:</label>
+        <select id="plan-select" required>
+            <option value="">Select a plan</option>
+        </select><br><br>
 
-        checkoutButton.addEventListener('click', function () {
-            // Send a POST request to create a checkout session
-            fetch('http://127.0.0.1:8000/api/v1/payment/checkout/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQyNzE5Nzk1LCJpYXQiOjE3NDI3MTM3OTUsImp0aSI6IjRhMzg3ZTllNGIxZDQ3M2Y4ZDA2YTlmMDViMTljNzlmIiwidXNlcl9pZCI6OSwidXNlcm5hbWUiOiJtZG1lcmF6dWw2NSIsImVtYWlsIjoibWRtZXJhenVsNjVAZ21haWwuY29tIiwicm9sZSI6InVzZXIifQ.6cdzAR6DyhGmAjgxnloC-atgiVwxhEKpFaEUX-w0XYk'  // Ensure the user is authenticated
-                }
-            })
-            .then(function (response) {
-                return response.json();  // Get the session data from the backend
-            })
-            .then(function (data) {
-                if (data.error) {
-                    alert(data.error);  // Show error if any
-                    return;
-                }
-                // Show the session ID in the console and on the webpage
-                console.log('Session ID:', data.id);  // Log the session ID in the console
-                sessionIdDisplay.textContent = 'Session ID: ' + data.id;  // Display session ID in the paragraph
-                // Redirect to Stripe Checkout page using the session ID
-                return stripe.redirectToCheckout({ sessionId: data.id });
-            })
-            .then(function (result) {
-                if (result.error) {
-                    alert(result.error.message);
-                }
-            })
-            .catch(function (error) {
-                console.error('Error:', error);
-            });
+        <label>Postal Code:</label>
+        <input type="text" id="postal-code" required><br><br>
+
+        <div id="card-element"><!-- Stripe Card Element will be inserted here --></div>
+        <button id="submit-button" disabled>Pay & Subscribe</button>
+    </form>
+
+    <p id="payment-message"></p> <!-- Payment status message -->
+
+    <script>
+        // Load Stripe with your publishable key
+        const stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu');  // Replace with your Stripe public key
+        const elements = stripe.elements();
+        const cardElement = elements.create("card");
+        cardElement.mount("#card-element");
+
+        let selectedPlan = null;
+
+        // Fetch subscription plans from your backend and display them in a dropdown
+        async function fetchSubscriptionPlans() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/v1/payment/subscription-plans/');
+                const plans = await response.json();
+
+                const planSelect = document.getElementById('plan-select');
+                plans.forEach(plan => {
+                    const option = document.createElement('option');
+                    option.value = plan.id;
+                    option.textContent = `${plan.name} - $${plan.price}`;
+                    planSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error fetching subscription plans:', error);
+            }
+        }
+
+        // Enable the submit button when a plan is selected
+        document.getElementById('plan-select').addEventListener('change', (event) => {
+            selectedPlan = event.target.value;
+            document.getElementById('submit-button').disabled = !selectedPlan;
         });
+
+        // Handle form submission when the user clicks "Pay & Subscribe"
+        document.querySelector("#payment-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            document.getElementById("submit-button").disabled = true;  // Disable button to prevent multiple submissions
+
+            const email = document.querySelector("#email").value;
+            const postalCode = document.querySelector("#postal-code").value;
+
+            // Create a Payment Method using Stripe
+            const { paymentMethod, error } = await stripe.createPaymentMethod({
+                type: "card",
+                card: cardElement,
+                billing_details: {
+                    email: email,
+                    address: {
+                        postal_code: postalCode  // Get the postal code value
+                    }
+                }
+            });
+
+            if (error) {
+                document.getElementById("payment-message").textContent = "Error: " + error.message;
+                document.getElementById("submit-button").disabled = false;
+                return;
+            }
+
+            console.log("Payment Method ID:", paymentMethod.id);
+
+            // Send the `payment_method_id`, `plan_id`, and `user_id` to the backend
+            fetch(`http://127.0.0.1:8000/api/v1/payment/complete-payment/${selectedPlan}/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQyODA5NTYwLCJpYXQiOjE3NDI4MDM1NjAsImp0aSI6ImNmMmYyYmI0MDhiNzQwY2VhODA3OTAyYzBiZjEzYjU0IiwidXNlcl9pZCI6MSwidXNlcm5hbWUiOiJtZG1lcmF6dWw3NSIsImVtYWlsIjoibWRtZXJhenVsNzVAZ21haWwuY29tIiwicm9sZSI6InVzZXIifQ.BDLlTJNHrr1U32tfbmicp9pVv05nJpn_v6WWf8RYExE"  // Replace with actual JWT token for authentication
+                },
+                body: JSON.stringify({
+                    email: email,
+                    plan_id: selectedPlan,
+                    user_id: 1,  // Replace with actual user ID
+                    payment_method_id: paymentMethod.id
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.detail === "Payment successful.") {
+                        document.getElementById("payment-message").textContent = "✅ Payment Successful! You are now subscribed.";
+                    } else {
+                        document.getElementById("payment-message").textContent = "❌ Payment Failed: " + data.detail;
+                        document.getElementById("submit-button").disabled = false;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById("payment-message").textContent = "❌ Payment Error: " + error.message;
+                    document.getElementById("submit-button").disabled = false;
+                });
+        });
+
+        // Initialize the subscription plans on page load
+        fetchSubscriptionPlans();
     </script>
+
 </body>
 </html>

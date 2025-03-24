@@ -17,8 +17,8 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email',  'role', 'address',
-                  'phone_number', 'photo', 'photo_tmp')
-        read_only_fields = ('id','username', 'email', )
+                  'phone_number', 'photo', 'photo_tmp','balance','trial_status','city','postal_code')
+        read_only_fields = ('id','username', 'email','balance', 'trial_status')
 
     def create(self, validated_data):
         # Handle image upload if provided

@@ -1,126 +1,218 @@
-from datetime import date
-from decimal import Decimal
-from .models import Order, Product, OrderProduct
-from rest_framework import serializers
-import stripe
 from rest_framework.views import APIView
+from .models import SubscriptionPlan, UserSubscription, Transaction
+from rest_framework import status
+from .models import Transaction, UserSubscription, SubscriptionPlan
+from .models import SubscriptionPlan, UserSubscription
 from django.conf import settings
-from .serializers import SubscriptionSerializer
-from .models import Subscription
-from django.shortcuts import render
-
-# Create your views here.
-from rest_framework import status, generics
+from rest_framework.decorators import api_view
+import stripe
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import Order
-from .serializers import OrderSerializer,OrderProductSerializer
+from .models import Order, Product, UserSubscription, SubscriptionPlan, OrderProduct
+from .serializers import OrderSerializer, ProductSerializer, UserSubscriptionSerializer, SubscriptionPlanSerializer
+from django.shortcuts import get_object_or_404
+from django.db import transaction
+from decimal import Decimal
 
 
-class CreateOrderView(generics.CreateAPIView):
+# Product ViewSet to list and retrieve products
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    # Only authenticated users can access products
+    # permission_classes = [IsAuthenticated]
+
+
+# SubscriptionPlan ViewSet to list and retrieve subscription plans
+class SubscriptionPlanViewSet(viewsets.ModelViewSet):
+    queryset = SubscriptionPlan.objects.all()
+    serializer_class = SubscriptionPlanSerializer
+    # Only authenticated users can access subscription plans
+    # permission_classes = [IsAuthenticated]
+
+
+# UserSubscription ViewSet to handle user subscriptions (create and view)
+class UserSubscriptionViewSet(viewsets.ModelViewSet):
+    queryset = UserSubscription.objects.all()
+    serializer_class = UserSubscriptionSerializer
+    # Only authenticated users can access their subscription
+    # permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Return the subscription for the logged-in user"""
+        return self.queryset.filter(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Handle subscription creation for a user"""
+        plan_id = request.data.get('plan_id')
+        plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+        user = request.user
+
+        # Create or update the subscription
+        subscription, created = UserSubscription.objects.get_or_create(
+            user=user, plan=plan)
+
+        # If the subscription exists, we may want to update it or just return the existing one
+        if not created:
+            subscription.plan = plan
+            subscription.save()
+
+        return Response(UserSubscriptionSerializer(subscription).data)
+
+
+# Order ViewSet to create and list orders
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
     serializer_class = OrderSerializer
+    # Only authenticated users can create/view orders
+    # permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        # Assign the logged-in user as the customer
-        data['customer'] = request.user.id
+    def get_queryset(self):
+        """Return orders for the logged-in user"""
+        return self.queryset.filter(customer=self.request.user)
 
-        # Calculate total price (product price * quantity) inside the serializer
-        serializer = self.get_serializer(data=data)
+    def create(self, request, *args, **kwargs):
+        """Create a new order for a user"""
+        # Ensure that the total_price is correctly calculated before creating the order
+        order_data = request.data
+        products_data = order_data.get('products', [])
 
-        if serializer.is_valid():
-            order = serializer.save()
-            # Check if the balance is sufficient before placing the order
-            if order.place_order():  # If balance is available and order is placed
-                return Response({'message': 'Order placed successfully!', 'order_id': order.id}, status=status.HTTP_201_CREATED)
-            else:
-                return Response({'message': 'Insufficient balance to place the order.'}, status=status.HTTP_400_BAD_REQUEST)
+        # Create the order with temporary data
+        order = Order(customer=request.user,
+                      order_date=order_data.get('order_date'))
+        order.save()
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CreateSubscriptionView(generics.CreateAPIView):
-    serializer_class = SubscriptionSerializer
-
-    def post(self, request, *args, **kwargs):
-        data = {
-            'customer': request.user.id,  # Use the logged-in user for subscription
-            'plan_type': 'weekly',  # Default to weekly subscription
-            'price': 20.00,  # Set price
-        }
-
-        serializer = self.get_serializer(data=data)
-        if serializer.is_valid():
-            subscription = serializer.save()
-            # Add balance to customer after subscription
-            subscription.add_balance_to_customer()
-            return Response({'message': 'Subscription created successfully!', 'subscription_id': subscription.id}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
-
-
-class StripeCheckoutView(APIView):
-    def post(self, request, *args, **kwargs):
-        # Get the order
-        order_id = request.data.get('order_id')
-        order = Order.objects.get(id=order_id)
-
-        # Create a Stripe checkout session
-        session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': order.product.name,
-                    },
-                    # Stripe requires the amount in cents
-                    'unit_amount': int(order.total_price * 100),
-                },
-                'quantity': order.quantity,
-            }],
-            mode='payment',
-            success_url=request.build_absolute_uri('/success/'),
-            cancel_url=request.build_absolute_uri('/cancel/'),
-        )
-
-        return Response({'session_id': session.id}, status=200)
-
-
-class OrderSerializer(serializers.ModelSerializer):
-    products = OrderProductSerializer(many=True)
-    total_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True)
-
-    class Meta:
-        model = Order
-        fields = ['customer', 'products', 'postal_code', 'address',
-                  'email', 'phone_number', 'city', 'total_price']
-
-    def create(self, validated_data):
-        products_data = validated_data.pop('products')
-        order = Order.objects.create(**validated_data)
-
-        total_price = Decimal(0.0)
-
-        # Add the products and their quantities to the order, and calculate the total price
+        # Calculate the total price and create OrderProduct instances
+        total_price = Decimal(0)
         for product_data in products_data:
-            product = product_data['product']
+            product = get_object_or_404(Product, id=product_data['product'])
             quantity = product_data['quantity']
-            price_per_item = product.price_per_item
+            price_per_item = product.price
             total_price += price_per_item * quantity
+            # Create OrderProduct instances
+            OrderProduct.objects.create(
+                order=order, product=product, quantity=quantity, price_per_item=price_per_item)
 
-            # Create an OrderProduct entry for each product in the order
-            order_product = OrderProduct.objects.create(
-                order=order,
-                product=product,
-                quantity=quantity,
-                price_per_item=price_per_item
-            )
-
-        # Update the order's total price
+        # Save the total price to the order
         order.total_price = total_price
         order.save()
 
-        return order
+        return Response(OrderSerializer(order).data)
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+from .models import SubscriptionPlan, UserSubscription, Transaction
+import stripe
+from django.conf import settings
+from django.core.mail import send_mail
+
+stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
+
+# Utility functions for response
+def failure_response(message, data=None, status_code=400):
+    return Response({"detail": message, "data": data}, status=status_code)
+
+def success_response(message, data=None, status_code=200):
+    return Response({"detail": message, "data": data}, status=status_code)
+
+
+class CompletePaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, plan_id):
+        user = request.user
+        user_email = request.data.get("email")
+        payment_method_id = request.data.get("payment_method_id")
+        plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+
+        # Ensure payment_method_id is provided
+        if not payment_method_id:
+            return failure_response("Payment method ID is required.", {}, status_code=400)
+
+        try:
+            # Check if the user already has a Stripe Customer ID
+            if not user.stripe_customer_id:
+                customer = stripe.Customer.create(
+                    email=user_email,
+                    name=user.username
+                )
+                user.stripe_customer_id = customer.id
+                user.save()
+
+            # Attach PaymentMethod to the Customer
+            stripe.PaymentMethod.attach(
+                payment_method_id,
+                customer=user.stripe_customer_id
+            )
+
+            # Create a PaymentIntent using the Customer and attached PaymentMethod
+            payment_intent = stripe.PaymentIntent.create(
+                amount=int(plan.price * 100),  # Convert to cents
+                currency="usd",
+                customer=user.stripe_customer_id,
+                payment_method=payment_method_id,
+                confirm=True,
+                receipt_email=user_email,
+                automatic_payment_methods={
+                    "enabled": True, "allow_redirects": "never"
+                }
+            )
+
+            # Save Payment Data in Database
+            payment = Transaction.objects.create(
+                user=user,
+                plan=plan,
+                transaction_id=payment_intent.id,
+                amount=plan.price,
+                payment_status="SUCCESS"
+            )
+
+            # Create UserSubscription
+            UserSubscription.objects.create(user=user, plan=plan)
+
+            # Send Subscription Confirmation Email
+            subject = f"Subscription Confirmation: {plan.name}"
+            message = f"""
+            Hello {user.username},
+
+            Congratulations! You have successfully subscribed to the "{plan.name}" plan.
+
+            Here are your payment details:
+            - Plan: {plan.name}
+            - Amount Paid: ${plan.price}
+            - Transaction ID: {payment.transaction_id}
+
+            You can now access the benefits of your subscription.
+
+            Best Regards,
+            Your Subscription Team
+            """
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user_email],
+                fail_silently=False,
+            )
+
+            return success_response(f"Successfully subscribed to {plan.name}.", {
+                "user_id": user.id,
+                "username": user.username,
+                "email": user_email,
+                "plan_id": plan.id,
+                "transaction_id": payment.transaction_id
+            }, status_code=201)
+
+        except stripe.error.CardError as e:
+            return failure_response("Card error. Payment failed.", {"error": str(e)}, status_code=400)
+
+        except stripe.error.StripeError as e:
+            return failure_response("Payment processing error. Try again later.", {"error": str(e)}, status_code=500)
+
+        except Exception as e:
+            return failure_response(f"An error occurred: {str(e)}", {}, status_code=500)

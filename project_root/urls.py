@@ -39,9 +39,6 @@ urlpatterns = [
         path('orders/', include('orders.urls')),
         path('dashboard/', include('dashboard.urls')),
         
-        
-        
-
     ])),
     # Swagger Docs
     path('swagger/', schema_view.with_ui('swagger',

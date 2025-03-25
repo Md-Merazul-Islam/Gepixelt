@@ -10,9 +10,34 @@ from rest_framework import status
 from django.db.models import Sum
 from django.utils import timezone
 from datetime import timedelta
+from rest_framework import status
+from rest_framework.response import Response
+
+def success_response(message, data, status_code=status.HTTP_200_OK):
+    return Response({
+        "success": True,
+        "statusCode": status_code,
+        "message": message,
+        "data": data
+    }, status=status_code)
+
+
+def failure_response(message, error, status_code=status.HTTP_400_BAD_REQUEST):
+    if 'non_field_errors' in error:
+        error_message = error['non_field_errors'][0] 
+    else:
+        error_message = error  
+    
+    return Response({
+        "success": False,
+        "statusCode": status_code,
+        "message": message,
+        "error": {
+            "message": error_message
+        }
+    }, status=status_code)
 
 from decimal import Decimal
-
 class DashboardStatsView(APIView):
 
     def get(self, request):
@@ -32,11 +57,25 @@ class DashboardStatsView(APIView):
             total_revenue=Sum('total_price')
         )['total_revenue'] or Decimal('0.00')  # Default to 0.00 if no revenue exists
 
+        # 5. Monthly Revenue
+        monthly_revenue = {}
+        for month in range(1, 13):  # Loop through months 1 to 12
+            start_of_month = timezone.now().replace(month=month, day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_of_month = (start_of_month + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)  # Get the last day of the month
+
+            # Aggregate revenue for the month
+            monthly_revenue[month] = Order.objects.filter(order_date__gte=start_of_month, order_date__lte=end_of_month).aggregate(
+                total_revenue=Sum('total_price')
+            )['total_revenue'] or Decimal('0.00')  # Default to 0.00 if no revenue exists for the month
+
+        # Prepare the data to return in the response
         data = {
             "total_customers": total_customers,
             "total_orders_today": total_orders_today,
             "total_subscriptions": total_subscriptions,
-            "total_revenue_yearly": str(total_revenue_yearly)  # Convert Decimal to string for JSON serialization
+            "total_revenue_yearly": str(total_revenue_yearly),  # Convert Decimal to string for JSON serialization
+            "monthly_revenue": {month: str(amount) for month, amount in monthly_revenue.items()}  # Convert all monthly amounts to string
         }
 
-        return Response(data, status=status.HTTP_200_OK)
+        # return Response(data, status=status.HTTP_200_OK)
+        return success_response("Dashboard stats retrieved successfully.", data , status.HTTP_200_OK)

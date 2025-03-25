@@ -42,29 +42,27 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        """Override list to apply pagination, filtering, and sorting."""
-        # Get filter parameters from the request
+        """Override list to apply pagination, filtering, sorting with custom response."""
         queryset = self.get_queryset()
-
-        # Apply filtering based on query parameters
         filtered_queryset = self.filter_queryset(queryset)
 
-        # Apply sorting
-        sort_by = request.query_params.get('sort_by', 'order_date',)
+        # Sorting
+        sort_by = request.query_params.get('sort_by', 'order_date')
         if sort_by not in ['order_date', 'status', 'receive_date']:
-            sort_by = 'order_date'  # If an invalid field is provided, default to 'order_date'
-
+            sort_by = 'order_date'
         sorted_queryset = filtered_queryset.order_by(sort_by)
 
-        # Paginate the results
+        # Pagination
         page = self.paginate_queryset(sorted_queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            paginated_data = self.get_paginated_response(serializer.data).data
+            return success_response("All orders retrieved successfully", paginated_data)
 
-        # If pagination is not applied, return all results
+        # Without pagination
         serializer = self.get_serializer(sorted_queryset, many=True)
         return success_response("All orders retrieved successfully", serializer.data)
+
 
     def create(self, request, *args, **kwargs):
         """Override create to use success_response."""

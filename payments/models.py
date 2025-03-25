@@ -1,4 +1,4 @@
-from cart.models import Card, CardItem
+
 from django.db import models
 from products.models import Product
 from django.contrib.auth import get_user_model

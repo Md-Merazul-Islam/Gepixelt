@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 from .models import Order, OrderItem, Product
 
 
@@ -28,21 +29,20 @@ class OrderSerializer(serializers.ModelSerializer):
 
         total_price = 0
         for item in items:
-            product = item.get('product')  # Fetch product instance
+            product = item.get('product')
             if not isinstance(product, Product):
                 raise serializers.ValidationError("Invalid product reference.")
             total_price += product.price * item.get('quantity', 1)
 
         if user.balance < total_price:
             raise serializers.ValidationError(
-                "You don't have enough balance to place this order."
-            )
+                "You don't have enough balance to place this order.")
 
         return data
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
-        user = self.context['request'].user  # Ensure the user is correctly assigned
+        user = self.context['request'].user
 
         total_price = 0
         for item in items_data:
@@ -50,17 +50,27 @@ class OrderSerializer(serializers.ModelSerializer):
             total_price += product.price * item['quantity']
 
         if user.balance < total_price:
-            raise serializers.ValidationError("Insufficient balance to place this order.")
+            raise serializers.ValidationError(
+                "Insufficient balance to place this order.")
 
-        # Deduct balance from user
-        user.balance -= total_price
-        user.save(update_fields=['balance'])
+        with transaction.atomic():
+            user.balance -= total_price
+            user.save(update_fields=['balance'])
 
-        # Create order (ensure user is passed separately)
-        order = Order.objects.create(**validated_data)
+            order = Order.objects.create(user=user, **validated_data)
 
-        # Create order items
-        for item_data in items_data:
-            OrderItem.objects.create(order=order, **item_data)
+            for item_data in items_data:
+                OrderItem.objects.create(order=order, **item_data)
 
         return order
+
+    def handle_validation_error(self, exc):
+        # Override to catch validation error and format it correctly
+        raise serializers.ValidationError({
+            "success": False,
+            "statusCode": 400,
+            "message": "Order creation failed",
+            "error": {
+                "message": str(exc)  # Directly show the error message
+            }
+        })

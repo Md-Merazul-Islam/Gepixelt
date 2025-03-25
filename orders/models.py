@@ -4,7 +4,8 @@ from django.contrib.auth import login, get_user_model, update_session_auth_hash
 from django.core.exceptions import ValidationError
 User = get_user_model()
 # Create your models here.
-
+import logging
+logger = logging.getLogger(__name__)
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 
@@ -42,7 +43,8 @@ class Order(models.Model):
         # Ensure both total_price and balance are Decimals before comparison
         total_price = Decimal(self.total_price)  # Convert to Decimal if it's a float
         balance = Decimal(self.user.balance)  # Ensure the balance is Decimal
-
+        logger.debug(f"Total price: {total_price}, User balance: {balance}")
+        
         if balance < total_price:
             raise ValidationError("Insufficient balance to place the order.")
 
@@ -66,7 +68,3 @@ class OrderItem(models.Model):
         """
         self.price = self.product.price * self.quantity
         super(OrderItem, self).save(*args, **kwargs)
-
-        # Recalculate total price for the order
-        self.order.calculate_total_price()
-        self.order.save(update_fields=['total_price'])

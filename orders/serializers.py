@@ -11,7 +11,13 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ['product', 'quantity', 'price']
         read_only_fields = ['price']
-
+    def validate(self, data):
+        # Ensure price is valid for the product
+        product = data.get('product')
+        if product and not product.price:
+            raise serializers.ValidationError("Product price is missing.")
+        data['price'] = product.price  # Set the price explicitly
+        return data
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, required=False)
@@ -43,22 +49,21 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
-        # Get the user from the request context
         user = self.context['request'].user
         validated_data.pop('user', None)  # Remove 'user' from validated_data
-        # Calculate the total price of the order
-        total_price = 0
+        
+        total_price = 0  # Initialize total price variable
         for item in items_data:
             product = item['product']
-            total_price += product.price * item['quantity']
+            total_price += product.price * item['quantity']  # Calculate total price for all items
 
         # Check if the user has enough balance
         if user.balance < total_price:
             raise serializers.ValidationError(
                 "Insufficient balance to place this order.")
 
-        # Remove 'user' from validated_data before saving, to avoid multiple values for the 'user' field
-        order = Order.objects.create(**validated_data, user=user)
+        # Create the order and save total_price
+        order = Order.objects.create(**validated_data, user=user, total_price=total_price)
 
         # Create order items
         for item_data in items_data:

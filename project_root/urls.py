@@ -35,7 +35,6 @@ urlpatterns = [
     path('api/v1/', include([
         path('auth/', include('auths.urls')),
         path('products/', include('products.urls')),
-        path('my-cart/', include('cart.urls')),
         path('payment/', include('payments.urls')),
         path('orders/', include('orders.urls')),
         

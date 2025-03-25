@@ -8,23 +8,62 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from .models import Order
 from .serializers import OrderSerializer
-# Import your response methods
 from utils  .utils import success_response, failure_response
+from rest_framework.pagination import PageNumberPagination
+from django_filters import rest_framework as filters
+
+
+class OrderFilter(filters.FilterSet):
+    status = filters.ChoiceFilter(
+        choices=Order.STATUS_CHOICES, label='Order Status')
+    order_date = filters.DateFromToRangeFilter(label='Order Date')
+    receive_date = filters.DateFromToRangeFilter(label='Receive Date')
+
+    class Meta:
+        model = Order
+        fields = ['status', 'order_date']
+
+
+class OrderPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().order_by('-order_date')
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = OrderPagination
+    filter_class = OrderFilter
 
     def perform_create(self, serializer):
         """Override to set the user for the order."""
         serializer.save(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        """Override list to use success_response."""
+        """Override list to apply pagination, filtering, and sorting."""
+        # Get filter parameters from the request
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+
+        # Apply filtering based on query parameters
+        filtered_queryset = self.filter_queryset(queryset)
+
+        # Apply sorting
+        sort_by = request.query_params.get('sort_by', 'order_date',)
+        if sort_by not in ['order_date', 'status', 'receive_date']:
+            sort_by = 'order_date'  # If an invalid field is provided, default to 'order_date'
+
+        sorted_queryset = filtered_queryset.order_by(sort_by)
+
+        # Paginate the results
+        page = self.paginate_queryset(sorted_queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        # If pagination is not applied, return all results
+        serializer = self.get_serializer(sorted_queryset, many=True)
         return success_response("All orders retrieved successfully", serializer.data)
 
     def create(self, request, *args, **kwargs):
@@ -138,7 +177,8 @@ class CancelOrderAPIView(APIView):
             # If the order is already canceled, prevent further action
             if order.status == 'canceled':
                 return Response(
-                    {"success": False, "message": "Order with this ID has already been canceled."},
+                    {"success": False,
+                        "message": "Order with this ID has already been canceled."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 

@@ -24,6 +24,7 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['total_price']
 
     def validate(self, data):
+        # Access the user from the request context
         user = self.context['request'].user
         items = data.get('items', [])
 
@@ -42,25 +43,26 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
+        # Get the user from the request context
         user = self.context['request'].user
-
+        validated_data.pop('user', None)  # Remove 'user' from validated_data
+        # Calculate the total price of the order
         total_price = 0
         for item in items_data:
             product = item['product']
             total_price += product.price * item['quantity']
 
+        # Check if the user has enough balance
         if user.balance < total_price:
             raise serializers.ValidationError(
                 "Insufficient balance to place this order.")
 
-        with transaction.atomic():
-            user.balance -= total_price
-            user.save(update_fields=['balance'])
+        # Remove 'user' from validated_data before saving, to avoid multiple values for the 'user' field
+        order = Order.objects.create(**validated_data, user=user)
 
-            order = Order.objects.create(user=user, **validated_data)
-
-            for item_data in items_data:
-                OrderItem.objects.create(order=order, **item_data)
+        # Create order items
+        for item_data in items_data:
+            OrderItem.objects.create(order=order, **item_data)
 
         return order
 

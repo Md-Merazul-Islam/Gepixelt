@@ -5,6 +5,8 @@ from django.core.exceptions import ValidationError
 User = get_user_model()
 # Create your models here.
 
+from decimal import Decimal
+from django.core.exceptions import ValidationError
 
 class Order(models.Model):
     STATUS_CHOICES = (
@@ -18,7 +20,7 @@ class Order(models.Model):
     order_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     receive_date = models.DateField(null=True, blank=True)
     total_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0.00, null=True, blank=True)
+        max_digits=10, decimal_places=2, default=Decimal('0.00'), null=True, blank=True)
     status = models.CharField(
         max_length=10, choices=STATUS_CHOICES, default='pending', null=True, blank=True)
 
@@ -37,11 +39,15 @@ class Order(models.Model):
         """
         Before saving, check if the user has enough balance.
         """
-        if self.user.balance < self.total_price:
+        # Ensure both total_price and balance are Decimals before comparison
+        total_price = Decimal(self.total_price)  # Convert to Decimal if it's a float
+        balance = Decimal(self.user.balance)  # Ensure the balance is Decimal
+
+        if balance < total_price:
             raise ValidationError("Insufficient balance to place the order.")
 
         # Deduct the total price from user's balance when the order is placed
-        self.user.balance -= self.total_price
+        self.user.balance -= total_price
         self.user.save(update_fields=['balance'])
 
         super(Order, self).save(*args, **kwargs)

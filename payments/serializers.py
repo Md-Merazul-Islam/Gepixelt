@@ -1,7 +1,7 @@
 # serializers.py
 
 from rest_framework import serializers
-from .models import Order, OrderProduct, Product, SubscriptionPlan, UserSubscription, Transaction
+from .models import  Product, SubscriptionPlan, UserSubscription, Transaction
 from django.contrib.auth import get_user_model
 from decimal import Decimal
 from django.utils import timezone
@@ -19,47 +19,47 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'price', 'description']
 
 
-# OrderProduct Serializer (many-to-many relationship between Order and Product)
-class OrderProductSerializer(serializers.ModelSerializer):
-    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())  # Just use the product ID
+# # OrderProduct Serializer (many-to-many relationship between Order and Product)
+# class OrderProductSerializer(serializers.ModelSerializer):
+#     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())  # Just use the product ID
 
-    class Meta:
-        model = OrderProduct
-        fields = ['product', 'quantity', 'price_per_item']
+#     class Meta:
+#         model = OrderProduct
+#         fields = ['product', 'quantity', 'price_per_item']
 
-# Order Serializer
+# # Order Serializer
 
 
-class OrderSerializer(serializers.ModelSerializer):
-    customer = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    products = OrderProductSerializer(many=True)
+# class OrderSerializer(serializers.ModelSerializer):
+#     customer = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+#     products = OrderProductSerializer(many=True)
 
-    class Meta:
-        model = Order
-        fields = ['id', 'customer', 'order_date', 'products', 'total_price']
+#     class Meta:
+#         model = Order
+#         fields = ['id', 'customer', 'order_date', 'products', 'total_price']
 
-    def create(self, validated_data):
-        # Pop the products from validated data
-        products_data = validated_data.pop('products')
-        # customer = validated_data['customer']  # Ensure customer is passed and correctly handled
-        order = Order.objects.create(**validated_data)  # Create the order
+#     def create(self, validated_data):
+#         # Pop the products from validated data
+#         products_data = validated_data.pop('products')
+#         # customer = validated_data['customer']  # Ensure customer is passed and correctly handled
+#         order = Order.objects.create(**validated_data)  # Create the order
 
-        total_price = Decimal(0.0)  # Initialize total price
-        for product_data in products_data:
-            product = Product.objects.get(id=product_data['product'])
-            price_per_item = product.price
-            quantity = product_data['quantity']
-            order_product = OrderProduct.objects.create(
-                order=order,
-                product=product,
-                quantity=quantity,
-                price_per_item=price_per_item
-            )
-            total_price += price_per_item * quantity
+#         total_price = Decimal(0.0)  # Initialize total price
+#         for product_data in products_data:
+#             product = Product.objects.get(id=product_data['product'])
+#             price_per_item = product.price
+#             quantity = product_data['quantity']
+#             order_product = OrderProduct.objects.create(
+#                 order=order,
+#                 product=product,
+#                 quantity=quantity,
+#                 price_per_item=price_per_item
+#             )
+#             total_price += price_per_item * quantity
 
-        order.total_price = total_price
-        order.save()
-        return order
+#         order.total_price = total_price
+#         order.save()
+#         return order
 
 
 # SubscriptionPlan Serializer

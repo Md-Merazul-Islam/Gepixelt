@@ -1,3 +1,6 @@
+from django.db.models import Case, When, Value, IntegerField
+from django.db import transaction
+import logging
 from datetime import date
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -54,7 +57,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         instance.delete()
         return success_response("Order deleted successfully", None, status.HTTP_204_NO_CONTENT)
-from django.db.models import Case, When, Value, IntegerField
+
 
 class OrderAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -73,14 +76,14 @@ class OrderAPIView(APIView):
             # Retrieve all orders for the authenticated user
             orders = Order.objects.filter(user=request.user).annotate(
                 status_order=Case(
-                When(status='pending', then=Value(1)),
-                When(status='accepted', then=Value(2)),
-                When(status='canceled', then=Value(3)),
-                When(status='delivered', then=Value(4)),
-                default=Value(5),  # In case there are unknown statuses
-                output_field=IntegerField()
-            )
-        ).order_by('status_order')
+                    When(status='pending', then=Value(1)),
+                    When(status='accepted', then=Value(2)),
+                    When(status='canceled', then=Value(3)),
+                    When(status='delivered', then=Value(4)),
+                    default=Value(5),  # In case there are unknown statuses
+                    output_field=IntegerField()
+                )
+            ).order_by('status_order')
             serializer = OrderSerializer(orders, many=True)
             return success_response("My Orders retrieved successfully", serializer.data, status_code=status.HTTP_200_OK)
 
@@ -128,20 +131,47 @@ class CancelOrderAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, order_id):
-        """Cancel an existing order for the authenticated user."""
+        """Cancel an existing order for the authenticated user and process refund."""
         try:
             order = Order.objects.get(id=order_id, user=request.user)
-            # if order.status == 'canceled':
-            #     return failure_response("Order already canceled", "Order with this ID has already been canceled.", status_code=status.HTTP_400_BAD_REQUEST)
-            if order.status == 'canceled':
-                return failure_response("Order already canceled", "Order with this ID has already been canceled.", status_code=status.HTTP_400_BAD_REQUEST)
-            user = request.user
-            total_price = order.total_price
-            user.balance += total_price  # Refund the user's balance
-            user.save()
 
-            order.status = 'canceled'  # Mark the order as canceled
+            # If the order is already canceled, prevent further action
+            if order.status == 'canceled':
+                return Response(
+                    {"success": False, "message": "Order with this ID has already been canceled."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Mark the order as canceled
+            order.status = 'canceled'
             order.save()
-            return success_response("Order canceled successfully", {}, status_code=status.HTTP_200_OK)
+
+            # Refund the order
+            success, result = order.refund_order()
+
+            if success:
+                # Return the updated order and user balance after refund
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Order canceled successfully",
+                        "order": {
+                            "id": order.id,
+                            "status": order.status,
+                            "total_price": str(order.total_price),
+                            "user_balance": str(result),
+                        }
+                    },
+                    status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"success": False, "message": f"Refund failed: {result}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
         except Order.DoesNotExist:
-            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to cancel it.", status_code=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"success": False, "message": "Order not found or you don't have permission to cancel it."},
+                status=status.HTTP_404_NOT_FOUND
+            )

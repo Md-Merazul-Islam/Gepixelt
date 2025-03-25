@@ -59,8 +59,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # Check if the user has enough balance
         if user.balance < total_price:
-            raise serializers.ValidationError(
-                "Insufficient balance to place this order.")
+            raise serializers.ValidationError("Insufficient balance to place this order.")
 
         # Create the order and save total_price
         order = Order.objects.create(**validated_data, user=user, total_price=total_price)

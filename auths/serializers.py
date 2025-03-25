@@ -80,6 +80,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         if User.objects.filter(username=data['username']).exists():
             raise serializers.ValidationError(
                 {"username": "Username already exists."})
+            
+        if User.objects.filter(username=data['username']).exists():
+            raise serializers.ValidationError(
+                {"phone_number": "Phone number already exists."})
 
         return data
 

@@ -108,11 +108,24 @@ class OrderAPIView(APIView):
             return success_response("Order updated successfully", serializer.data, status_code=status.HTTP_200_OK)
         return failure_response("Order update failed", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, order_id):
-        """Delete an existing order for the authenticated user."""
+        
+class CancelOrderAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, order_id):
+        """Cancel an existing order for the authenticated user."""
         try:
             order = Order.objects.get(id=order_id, user=request.user)
-            order.delete()
-            return success_response("Order deleted successfully", None, status_code=status.HTTP_204_NO_CONTENT)
+            if order.status == 'canceled':
+                return failure_response("Order already canceled", "Order with this ID has already been canceled.", status_code=status.HTTP_400_BAD_REQUEST)
+            user= request.user
+            total_price = order.total_price
+            user.balance += total_price  # Refund the user's balance
+            user.save()
+            
+            order.status = 'canceled'  # Mark the order as canceled
+            order.save()
+            return success_response("Order canceled successfully", {}, status_code=status.HTTP_200_OK)
         except Order.DoesNotExist:
-            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to delete it.", status_code=status.HTTP_404_NOT_FOUND)
+            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to cancel it.", status_code=status.HTTP_404_NOT_FOUND) 
+            

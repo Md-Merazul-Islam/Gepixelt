@@ -305,21 +305,3 @@ class UserSubscriptionDetailView(APIView):
             return Response({
                 "detail": "No subscription found for the user."
             }, status=404)
-
-# from.models import create_order_from_card
-# class CreateOrderFromCardView(APIView):
-#     def post(self, request):
-#         # Get the user's card (assuming the user is authenticated)
-#         user = request.user
-#         card = user.card  # Assuming the card is related to the user
-
-#         # Create an order from the card
-#         try:
-#             order = create_order_from_card(card)
-#             return Response({
-#                 'message': 'Order placed successfully.',
-#                 'order_id': order.id,
-#                 'total_price': str(order.total_price)
-#             }, status=status.HTTP_201_CREATED)
-#         except Exception as e:
-#             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

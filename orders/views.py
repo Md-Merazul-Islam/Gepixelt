@@ -1,3 +1,4 @@
+from datetime import date
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import viewsets, permissions, status
@@ -53,6 +54,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         instance.delete()
         return success_response("Order deleted successfully", None, status.HTTP_204_NO_CONTENT)
+from django.db.models import Case, When, Value, IntegerField
 
 class OrderAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -69,16 +71,27 @@ class OrderAPIView(APIView):
                 return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to view it.", status_code=status.HTTP_404_NOT_FOUND)
         else:
             # Retrieve all orders for the authenticated user
-            orders = Order.objects.filter(user=request.user)
+            orders = Order.objects.filter(user=request.user).annotate(
+                status_order=Case(
+                When(status='pending', then=Value(1)),
+                When(status='accepted', then=Value(2)),
+                When(status='canceled', then=Value(3)),
+                When(status='delivered', then=Value(4)),
+                default=Value(5),  # In case there are unknown statuses
+                output_field=IntegerField()
+            )
+        ).order_by('status_order')
             serializer = OrderSerializer(orders, many=True)
             return success_response("My Orders retrieved successfully", serializer.data, status_code=status.HTTP_200_OK)
 
     def post(self, request):
         """Create a new order for the authenticated user."""
         # Pass the request into the serializer context
-        serializer = OrderSerializer(data=request.data, context={'request': request})
+        serializer = OrderSerializer(
+            data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(user=request.user)  # Associate the order with the authenticated user
+            # Associate the order with the authenticated user
+            serializer.save(user=request.user)
             return success_response("Order created successfully", serializer.data, status_code=status.HTTP_201_CREATED)
         return failure_response("Order creation failed", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -89,7 +102,8 @@ class OrderAPIView(APIView):
         except Order.DoesNotExist:
             return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to update it.", status_code=status.HTTP_404_NOT_FOUND)
 
-        serializer = OrderSerializer(order, data=request.data, partial=False)  # Full update
+        serializer = OrderSerializer(
+            order, data=request.data, partial=False)  # Full update
         if serializer.is_valid():
             serializer.save()
             return success_response("Order updated successfully", serializer.data, status_code=status.HTTP_200_OK)
@@ -102,13 +116,14 @@ class OrderAPIView(APIView):
         except Order.DoesNotExist:
             return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to update it.", status_code=status.HTTP_404_NOT_FOUND)
 
-        serializer = OrderSerializer(order, data=request.data, partial=True)  # Partial update
+        serializer = OrderSerializer(
+            order, data=request.data, partial=True)  # Partial update
         if serializer.is_valid():
             serializer.save()
             return success_response("Order updated successfully", serializer.data, status_code=status.HTTP_200_OK)
         return failure_response("Order update failed", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
-        
+
 class CancelOrderAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -116,16 +131,17 @@ class CancelOrderAPIView(APIView):
         """Cancel an existing order for the authenticated user."""
         try:
             order = Order.objects.get(id=order_id, user=request.user)
+            # if order.status == 'canceled':
+            #     return failure_response("Order already canceled", "Order with this ID has already been canceled.", status_code=status.HTTP_400_BAD_REQUEST)
             if order.status == 'canceled':
                 return failure_response("Order already canceled", "Order with this ID has already been canceled.", status_code=status.HTTP_400_BAD_REQUEST)
-            user= request.user
+            user = request.user
             total_price = order.total_price
             user.balance += total_price  # Refund the user's balance
             user.save()
-            
+
             order.status = 'canceled'  # Mark the order as canceled
             order.save()
             return success_response("Order canceled successfully", {}, status_code=status.HTTP_200_OK)
         except Order.DoesNotExist:
-            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to cancel it.", status_code=status.HTTP_404_NOT_FOUND) 
-            
+            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to cancel it.", status_code=status.HTTP_404_NOT_FOUND)

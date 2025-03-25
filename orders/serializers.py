@@ -80,3 +80,11 @@ class OrderSerializer(serializers.ModelSerializer):
                 "message": str(exc)  # Directly show the error message
             }
         })
+
+
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)
+
+    class Meta:
+        model = Order
+        fields = ['status']

@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from .models import Order
-from .serializers import OrderSerializer
+from .serializers import OrderSerializer, OrderStatusUpdateSerializer
 from utils  .utils import success_response, failure_response
 from rest_framework.pagination import PageNumberPagination
 from django_filters import rest_framework as filters
@@ -215,3 +215,24 @@ class CancelOrderAPIView(APIView):
                 {"success": False, "message": "Order not found or you don't have permission to cancel it."},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class OrderStatusUpdateView(APIView):
+    """
+    View to update the status of an order.
+    Accepts PATCH requests with `status` in the request body.
+    """
+
+    def patch(self, request, order_id, *args, **kwargs):
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({"message": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Use the serializer to validate and update the status
+        serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Order status updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+
+        return Response({"message": "Invalid data", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)

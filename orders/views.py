@@ -1,3 +1,6 @@
+from django.core.mail import send_mail, EmailMessage
+from django.conf import settings
+from utils.IsAdminOrStaff import IsAdminOrStaff
 from django.db.models import Case, When, Value, IntegerField
 from django.db import transaction
 import logging
@@ -11,6 +14,9 @@ from .serializers import OrderSerializer, OrderStatusUpdateSerializer
 from utils  .utils import success_response, failure_response
 from rest_framework.pagination import PageNumberPagination
 from django_filters import rest_framework as filters
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+
 
 def success_response(message, data, status_code=status.HTTP_200_OK):
     return Response({"success": True, "statusCode": status_code, "message": message, "data": data}, status=status_code)
@@ -18,6 +24,7 @@ def success_response(message, data, status_code=status.HTTP_200_OK):
 
 def failure_response(message, error, status_code=status.HTTP_400_BAD_REQUEST):
     return Response({"success": False, "statusCode": status_code, "message": message, "error": error}, status=status_code)
+
 
 class OrderFilter(filters.FilterSet):
     status = filters.ChoiceFilter(
@@ -35,7 +42,6 @@ class OrderPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
-from  utils.IsAdminOrStaff import IsAdminOrStaff
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().order_by('-order_date')
@@ -69,7 +75,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Without pagination
         serializer = self.get_serializer(sorted_queryset, many=True)
         return success_response("All orders retrieved successfully", serializer.data)
-
 
     def create(self, request, *args, **kwargs):
         """Override create to use success_response."""
@@ -138,9 +143,55 @@ class OrderAPIView(APIView):
             data=request.data, context={'request': request})
         if serializer.is_valid():
             # Associate the order with the authenticated user
-            serializer.save(user=request.user)
+            order = serializer.save(user=request.user)
+
+            # Dynamically calculate the total amount of the order
+            # Assuming `items` is a related field
+            total_amount = sum(
+                item.price * item.quantity for item in order.items.all())
+
+            # Send order confirmation email to the user
+            user_subject = f"Order Confirmation - Order ID: {order.id}"
+            user_message = render_to_string(
+                'order_confirmation.html', {
+                    'user': request.user,
+                    'order': order,
+                    'order_items': order.items.all(),
+                    'total_amount': total_amount  # Pass the calculated total amount
+                })
+
+            # Use EmailMessage to send the HTML email
+            user_email = EmailMessage(
+                user_subject,
+                user_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [request.user.email]
+            )
+            user_email.content_subtype = "html"  # Set the content type to HTML
+            user_email.send(fail_silently=False)
+
+            # Optionally, send a notification email to the admin
+            admin_subject = f"New Order Received - Order ID: {order.id}"
+            admin_message = render_to_string(
+                'admin_order_notification.html', {
+                    'user': request.user,
+                    'order': order,
+                    'order_items': order.items.all(),
+                    'total_amount': total_amount
+                })
+
+            # Assuming the admin's email is set in your settings
+            admin_email = settings.ADMIN_EMAIL
+
+            admin_email_message = EmailMessage(
+                admin_subject,
+                admin_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [admin_email]
+            )
+            admin_email_message.content_subtype = "html"  # Set the content type to HTML
+            admin_email_message.send(fail_silently=False)
             return success_response("Order created successfully", serializer.data, status.HTTP_201_CREATED)
-        return failure_response("Order creation failed", serializer.errors, status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, order_id):
         """Update an existing order for the authenticated user."""
@@ -221,6 +272,7 @@ class CancelOrderAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+
 class OrderStatusUpdateView(APIView):
     """
     View to update the status of an order.
@@ -234,7 +286,8 @@ class OrderStatusUpdateView(APIView):
             return Response({"message": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Use the serializer to validate and update the status
-        serializer = OrderStatusUpdateSerializer(order, data=request.data, partial=True)
+        serializer = OrderStatusUpdateSerializer(
+            order, data=request.data, partial=True)
 
         if serializer.is_valid():
             serializer.save()

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>New Order Notification</title>
+    <title>Oder Confirmation</title>
     <style>
         body,
         table,
@@ -58,7 +58,7 @@
                     <img src="https://res.cloudinary.com/dnsorselg/image/upload/v1742626355/logo_p1rbam.png"
                         alt="Your Logo" style="width: auto; height: 80px; margin: 0 auto 15px;" />
                     <h1 style="color: #ffffff; font-size: 24px; font-weight: 600; margin: 0;">
-                        New Order Received
+                        Order Confirmation
                     </h1>
                 </div>
             </div>
@@ -74,9 +74,9 @@
 
                 <!-- Subscription Details -->
                 <div style="margin: 30px auto; color: rgb(14, 5, 5); border-radius: 8px;">
-                    <h1>New Order Received</h1>
-                    <p>Order ID: {{ order.id }}</p>
-                    <p><strong>Customer:</strong> {{ user.username }}</p>
+                    <h1>Thank you for your order, {{ user.username }}!</h1>
+                    <p>Your order details are as follows:</p>
+                    <p><strong>Order ID:</strong> {{ order.id }}</p>
                     <p><strong>Total Amount:</strong> ${{ total_amount }}</p>
                     <h3>Order Items:</h3>
                     <ul>
@@ -84,7 +84,6 @@
                         <li>{{ item.product_name }} - ${{ item.price }} x {{ item.quantity }}</li>
                         {% endfor %}
                     </ul>
-                    <p>Please process this order as soon as possible.</p>
                 </div>
 
                 <div

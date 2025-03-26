@@ -1,3 +1,4 @@
+from utils.IsAdminOrStaff import IsAdminOrHasRoleAdmin
 from utils.IsAdminOrStaff import IsAdminOrStaff
 from rest_framework.pagination import PageNumberPagination
 from . serializers import UserSubscriptionSerializer
@@ -86,8 +87,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         return success_response("Product deleted successfully.", {})
 
-from utils.IsAdminOrStaff import IsAdminOrHasRoleAdmin
+
 # SubscriptionPlan ViewSet to list and retrieve subscription plans
+
+
 class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     queryset = SubscriptionPlan.objects.all()
     serializer_class = SubscriptionPlanSerializer
@@ -302,7 +305,7 @@ class CompletePaymentView(APIView):
 
                 # Send Subscription Confirmation Email
                 subject = f"Subscription Confirmation: {plan.name}"
-                end_date = user_subscription.end_date.strftime('%d.%m.%Y') 
+                end_date = user_subscription.end_date.strftime('%d.%m.%Y')
                 message = render_to_string(
                     'subscription_confirmation.html', {
                         'user': user,
@@ -314,7 +317,7 @@ class CompletePaymentView(APIView):
                 email = EmailMessage(
                     subject,
                     message,
-                    settings.DEFAULT_FROM_EMAIL,
+                    settings.EMAIL_HOST_USER,
                     [user.email],  # user.email should be the recipient's email
                 )
                 email.content_subtype = "html"  # This is important to send as HTML email
@@ -340,7 +343,6 @@ class CompletePaymentView(APIView):
             return Response({"detail": f"An error occurred: {str(e)}"}, status=500)
 
 
-
 class TransactionListView(APIView):
     permission_classes = [IsAdminOrStaff]
 
@@ -356,6 +358,7 @@ class TransactionListView(APIView):
 
 class UserSubscriptionDetailView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
         user = request.user
 

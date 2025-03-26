@@ -1,21 +1,21 @@
 from django.contrib import admin
-from .models import Order, OrderProduct, SubscriptionPlan, UserSubscription, Transaction
+from .models import  SubscriptionPlan, UserSubscription, Transaction
 
 # Register the OrderProduct model to manage it in the admin interface
-class OrderProductInline(admin.TabularInline):
-    model = OrderProduct
-    extra = 1  # Number of empty forms to display
+# class OrderProductInline(admin.TabularInline):
+#     model = OrderProduct
+#     extra = 1  # Number of empty forms to display
 
-# Register the Order model
-class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'customer', 'order_date', 'create_date', 'total_price', 'place_order')
-    search_fields = ['customer__username', 'id']
-    list_filter = ['order_date', 'create_date']
-    inlines = [OrderProductInline]
+# # Register the Order model
+# class OrderAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'customer', 'order_date', 'create_date', 'total_price', 'place_order')
+#     search_fields = ['customer__username', 'id']
+#     list_filter = ['order_date', 'create_date']
+#     inlines = [OrderProductInline]
 
-    def place_order(self, obj):
-        return obj.place_order()
-    place_order.short_description = 'Place Order'
+#     def place_order(self, obj):
+#         return obj.place_order()
+#     place_order.short_description = 'Place Order'
 
 
 # Register the SubscriptionPlan model
@@ -43,7 +43,7 @@ class TransactionAdmin(admin.ModelAdmin):
 
 
 # Register the models with the admin interface
-admin.site.register(Order, OrderAdmin)
+# admin.site.register(Order, OrderAdmin)
 admin.site.register(SubscriptionPlan, SubscriptionPlanAdmin)
 admin.site.register(UserSubscription, UserSubscriptionAdmin)
 admin.site.register(Transaction, TransactionAdmin)

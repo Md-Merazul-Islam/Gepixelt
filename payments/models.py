@@ -1,4 +1,4 @@
-from cart.models import Card, CardItem
+
 from django.db import models
 from products.models import Product
 from django.contrib.auth import get_user_model
@@ -7,47 +7,6 @@ from django.utils import timezone
 from datetime import timedelta
 
 User = get_user_model()
-
-# Order Model
-
-
-class Order(models.Model):
-    customer = models.ForeignKey(User, on_delete=models.CASCADE)
-    products = models.ManyToManyField(Product, through='OrderProduct')
-    order_date = models.DateField()  # Date chosen by the user
-    create_date = models.DateField(auto_now_add=True, blank=True, null=True)
-    total_price = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True)
-
-    def __str__(self):
-        return f"Order {self.id} by {self.customer.username}"
-
-    def place_order(self):
-        """Check if balance is sufficient to place the order, deduct balance if available."""
-        if self.customer.deduct_balance(self.total_price):
-            self.save()
-            return True
-        return False
-
-    def calculate_total_price(self):
-        """Method to calculate the total price for the order."""
-        total = Decimal(0.0)  # Start with 0.0 for accurate calculation
-        for order_product in self.orderproduct_set.all():
-            total += order_product.quantity * order_product.price_per_item
-        self.total_price = total
-        self.save()  # Save the updated total_price to the order
-
-
-# OrderProduct Model (for relationship between products and orders)
-class OrderProduct(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField()
-    price_per_item = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.product.name} x {self.quantity} for Order {self.order.id}"
 
 
 # Subscription Plan Model
@@ -69,8 +28,7 @@ class UserSubscription(models.Model):
     start_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     # This will store the subscription expiration date
     end_date = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=[(
-        'active', 'Active'), ('inactive', 'Inactive')], default='inactive')
+    status = models.CharField(max_length=20, choices=[('active', 'Active'), ('inactive', 'Inactive')], default='inactive')
 
     def __str__(self):
         return f"{self.user.email} - {self.plan.name}"
@@ -90,10 +48,6 @@ class UserSubscription(models.Model):
             self.save()
             return True
         return False
-
-
-# Add method to the User model to check balance deduction
-# User.add_to_class('deduct_balance', lambda self,amount: self.usersubscription.deduct_balance(amount))
 
 
 class Transaction(models.Model):
@@ -119,29 +73,3 @@ class Transaction(models.Model):
     def __str__(self):
         return f"Transaction {self.payment_intent_id} for {self.user.username}"
 
-
-# Simple function to create an order from the card
-def create_order_from_card(card):
-    # Create a new order
-    order = Order.objects.create(customer=card.user, order_date='2025-03-25')
-
-    # Initialize the total price
-    total_price = Decimal(0.0)
-
-    # Loop through card items and create order products
-    for item in card.items.all():
-        # Create OrderProduct for each item
-        OrderProduct.objects.create(
-            order=order,
-            product=item.product,
-            quantity=item.quantity,
-            price_per_item=item.product.price
-        )
-        # Calculate the total price
-        total_price += item.product.price * item.quantity
-
-    # Update the order's total price
-    order.total_price = total_price
-    order.save()
-
-    return order

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'drf_yasg',
 
 
 
@@ -47,9 +48,9 @@ INSTALLED_APPS = [
     # Local apps
     'auths',
     'products',
-    'cart',
     'payments',
     'orders',
+    'dashboard',
 
 
 
@@ -99,7 +100,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'project_root.wsgi.application'
+# WSGI_APPLICATION = 'project_root.wsgi.application'
+WSGI_APPLICATION = 'project_root.wsgi.app'
 
 
 # Password validation
@@ -160,6 +162,9 @@ REST_FRAMEWORK = {
         # 'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'EXCEPTION_HANDLER': 'utils.utils.custom_exception_handler',
+
+
 }
 
 SIMPLE_JWT = {
@@ -302,16 +307,16 @@ DATABASES = {
 # }
 
 # # Supabase (similar to AWS RDS).----------------------------------------------------------------
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'postgres',
-#         'USER': 'postgres.igsewvbxmhdfnqgjqnoi',
-#         'PASSWORD': '-*_u_4JaHnkcZnH',
-#         'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
-#         'PORT': '6543',
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres.hdpwndhwouuodnkqzffq',
+        'PASSWORD': 'viu8@UPQnuAQbKm',
+        'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
+        'PORT': '6543',
+    }
+}
 
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
@@ -345,6 +350,14 @@ MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
 # STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/static/"
 
 STRIPE_TEST_SECRET_KEY = os.getenv("STRIPE_TEST_SECRET_KEY")
-STRIPE_ENDPOINT_SECRET= os.getenv("STRIPE_ENDPOINT_SECRET")
+STRIPE_ENDPOINT_SECRET = os.getenv("STRIPE_ENDPOINT_SECRET")
 # STRIPE_TEST_PUBLIC_KEY = os.getenv("STRIPE_TEST_PUBLIC_KEY")
 
+
+# settings.py
+
+# Celery Configuration
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'  # Redis URL
+CELERY_ACCEPT_CONTENT = ['json']  # Accept only JSON content
+CELERY_TASK_SERIALIZER = 'json'  # Task data serialization method
+CELERY_TIMEZONE = 'UTC'  # Timezone

@@ -1,3 +1,6 @@
+from utils.IsAdminOrStaff import IsAdminOrHasRoleAdmin
+from utils.IsAdminOrStaff import IsAdminOrStaff
+from rest_framework.pagination import PageNumberPagination
 from . serializers import UserSubscriptionSerializer
 from rest_framework.views import APIView
 from .models import SubscriptionPlan, UserSubscription, Transaction
@@ -10,8 +13,8 @@ import stripe
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import Order, Product, UserSubscription, SubscriptionPlan, OrderProduct
-from .serializers import OrderSerializer, ProductSerializer, UserSubscriptionSerializer, SubscriptionPlanSerializer, TransactionSerializer
+from .models import Product, UserSubscription, SubscriptionPlan
+from .serializers import ProductSerializer, UserSubscriptionSerializer, SubscriptionPlanSerializer, TransactionSerializer
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from decimal import Decimal
@@ -19,8 +22,12 @@ from django.utils import timezone
 from datetime import timedelta
 from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
+from django.template.loader import render_to_string
+from django.core.mail import EmailMessage
 
 User = get_user_model()
+
+stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
 
 
 def success_response(message, data, status_code=status.HTTP_200_OK):
@@ -46,103 +53,173 @@ def failure_response(message, error, status_code=status.HTTP_400_BAD_REQUEST):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    # Only authenticated users can access products
     # permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response("Products fetched successfully.", serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response("Product retrieved successfully.", serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            return success_response("Product created successfully.", serializer.data, status.HTTP_201_CREATED)
+        return failure_response("Product creation failed.", serializer.errors)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            self.perform_update(serializer)
+            return success_response("Product updated successfully.", serializer.data)
+        return failure_response("Product update failed.", serializer.errors)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return success_response("Product deleted successfully.", {})
 
 
 # SubscriptionPlan ViewSet to list and retrieve subscription plans
+
+
 class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     queryset = SubscriptionPlan.objects.all()
     serializer_class = SubscriptionPlanSerializer
-    # Only authenticated users can access subscription plans
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrHasRoleAdmin]
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response("Subscription plans fetched successfully.", serializer.data)
 
-# UserSubscription ViewSet to handle user subscriptions (create and view)
-class UserSubscriptionViewSet(viewsets.ModelViewSet):
-    queryset = UserSubscription.objects.all()
-    serializer_class = UserSubscriptionSerializer
-    # Only authenticated users can access their subscription
-    # permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        """Return the subscription for the logged-in user"""
-        return self.queryset.filter(user=self.request.user)
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response("Subscription plan retrieved successfully.", serializer.data)
 
     def create(self, request, *args, **kwargs):
-        """Handle subscription creation for a user"""
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            return success_response("Subscription plan created successfully.", serializer.data, status.HTTP_201_CREATED)
+        return failure_response("Subscription plan creation failed.", serializer.errors)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            self.perform_update(serializer)
+            return success_response("Subscription plan updated successfully.", serializer.data)
+        return failure_response("Subscription plan update failed.", serializer.errors)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return success_response("Subscription plan deleted successfully.", {})
+
+
+class CustomPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class UserSubscriptionList(viewsets.ReadOnlyModelViewSet):
+    queryset = UserSubscription.objects.all()
+    serializer_class = UserSubscriptionSerializer
+    permission_classes = [IsAdminOrStaff]
+    pagination_class = CustomPagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset().filter()
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            paginated_response = self.get_paginated_response(serializer.data)
+
+            # Customize paginated response
+            return Response({
+                "success": True,
+                "statusCode": status.HTTP_200_OK,
+                "message": "All User subscriptions fetched successfully.",
+                "data": paginated_response.data  # includes pagination metadata
+            }, status=status.HTTP_200_OK)
+
+        # Fallback if no pagination
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response("All User subscriptions fetched successfully.", serializer.data)
+
+# UserSubscription ViewSet to handle user subscriptions (create and view)
+
+
+# class UserSubscriptionViewSet(viewsets.ModelViewSet):
+class UserSubscriptionViewSet(viewsets.ModelViewSet):
+    serializer_class = UserSubscriptionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Return only the subscriptions for the logged-in user"""
+        return UserSubscription.objects.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        """Return the current user's subscriptions with metadata"""
+        queryset = self.get_queryset()  # This already filters by user
+        serializer = self.get_serializer(queryset, many=True)
+
+        # Generate metadata
+        total = queryset.count()
+        active = queryset.filter(status='active').count()
+        inactive = queryset.filter(status='inactive').count()
+
+        return success_response(
+            "Your subscriptions fetched successfully.",
+            {
+                "total": total,
+                "active": active,
+                "inactive": inactive,
+                "subscriptions": serializer.data
+            }
+        )
+
+    def create(self, request, *args, **kwargs):
         plan_id = request.data.get('plan_id')
+
+        if not plan_id:
+            return failure_response("Plan ID is required.", {"detail": "Please provide a valid plan_id."}, status.HTTP_400_BAD_REQUEST)
+
         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
         user = request.user
 
-        # Create or update the subscription
         subscription, created = UserSubscription.objects.get_or_create(
             user=user, plan=plan)
 
-        # If the subscription exists, we may want to update it or just return the existing one
         if not created:
             subscription.plan = plan
             subscription.save()
 
-        return Response(UserSubscriptionSerializer(subscription).data)
+        return success_response("Subscription created or updated successfully.", UserSubscriptionSerializer(subscription).data, status.HTTP_201_CREATED)
 
-
-class OrderListView(APIView):
-    def get(self, request):
-        """Retrieve a list of orders."""
-        orders = Order.objects.all()
-        serializer = OrderSerializer(orders, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-        """Create a new order."""
-        serializer = OrderSerializer(data=request.data)
-        if serializer.is_valid():
-            order = serializer.save()
-            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class OrderDetailView(APIView):
-    def get(self, request, order_id):
-        """Retrieve a specific order."""
-        order = get_object_or_404(Order, id=order_id)
-        serializer = OrderSerializer(order)
-        return Response(serializer.data)
-
-    def put(self, request, order_id):
-        """Update a specific order (e.g., adding/removing products)."""
-        order = get_object_or_404(Order, id=order_id)
-        serializer = OrderSerializer(order, data=request.data, partial=True)
-        if serializer.is_valid():
-            order = serializer.save()
-            return Response(OrderSerializer(order).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class OrderPlaceOrderView(APIView):
-    def post(self, request, order_id):
-        """Place the order if balance is sufficient."""
-        order = get_object_or_404(Order, id=order_id)
-        if order.place_order():
-            return Response({'message': 'Order placed successfully'}, status=status.HTTP_200_OK)
-        return Response({'message': 'Insufficient balance'}, status=status.HTTP_400_BAD_REQUEST)
-
-
-stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
-# Utility functions for response
-
-
-def failure_response(message, data=None, status_code=400):
-    return Response({"detail": message, "data": data}, status=status_code)
-
-
-def success_response(message, data=None, status_code=200):
-    return Response({"detail": message, "data": data}, status=status_code)
-
-
-# Set your Stripe secret key
-stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve only the current user's subscription (single, if exists)"""
+        user = request.user
+        try:
+            user_subscription = UserSubscription.objects.get(user=user)
+            serializer = UserSubscriptionSerializer(user_subscription)
+            return success_response("Your subscription retrieved successfully.", serializer.data)
+        except UserSubscription.DoesNotExist:
+            return failure_response("No subscription found for your account.", {"detail": "You don't have any active subscriptions."}, status.HTTP_404_NOT_FOUND)
 
 
 # CompletePaymentView handles the payment process and subscription activation
@@ -228,28 +305,23 @@ class CompletePaymentView(APIView):
 
                 # Send Subscription Confirmation Email
                 subject = f"Subscription Confirmation: {plan.name}"
-                message = f"""
-                Hello {user.username},
+                end_date = user_subscription.end_date.strftime('%d.%m.%Y')
+                message = render_to_string(
+                    'subscription_confirmation.html', {
+                        'user': user,
+                        'plan': plan,
+                        'transaction': transaction
+                    })
 
-                Congratulations! You have successfully subscribed to the "{plan.name}" plan.
-
-                Here are your payment details:
-                - Plan: {plan.name}
-                - Amount Paid: ${plan.price}
-                - Transaction ID: {transaction.transaction_id}
-
-                You can now access the benefits of your subscription.
-
-                Best Regards,
-                Your Subscription Team
-                """
-                send_mail(
+                # Send Subscription Confirmation Email
+                email = EmailMessage(
                     subject,
                     message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user_email],
-                    fail_silently=False,
+                    settings.EMAIL_HOST_USER,
+                    [user.email],  # user.email should be the recipient's email
                 )
+                email.content_subtype = "html"  # This is important to send as HTML email
+                email.send(fail_silently=False)
 
                 return Response({
                     "detail": f"Successfully subscribed to {plan.name}.",
@@ -271,9 +343,8 @@ class CompletePaymentView(APIView):
             return Response({"detail": f"An error occurred: {str(e)}"}, status=500)
 
 
-# Transaction List API to view all transactions of a logged-in user
 class TransactionListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrStaff]
 
     def get(self, request):
         user = request.user
@@ -286,40 +357,24 @@ class TransactionListView(APIView):
 
 
 class UserSubscriptionDetailView(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        try:
-            # Get the user's subscription
-            user_subscription = UserSubscription.objects.get(user=user)
 
-            # Serialize the data
-            serializer = UserSubscriptionSerializer(user_subscription)
+        user_subscriptions = UserSubscription.objects.filter(user=user)
 
-            return Response({
-                "detail": "User subscription data retrieved successfully.",
-                "data": serializer.data
-            }, status=200)
-        except UserSubscription.DoesNotExist:
+        if not user_subscriptions:
             return Response({
                 "detail": "No subscription found for the user."
-            }, status=404)
+            }, status=status.HTTP_404_NOT_FOUND)
 
-from.models import create_order_from_card
-class CreateOrderFromCardView(APIView):
-    def post(self, request):
-        # Get the user's card (assuming the user is authenticated)
-        user = request.user
-        card = user.card  # Assuming the card is related to the user
+        user_subscription = user_subscriptions.order_by(
+            '-start_date').first()
 
-        # Create an order from the card
-        try:
-            order = create_order_from_card(card)
-            return Response({
-                'message': 'Order placed successfully.',
-                'order_id': order.id,
-                'total_price': str(order.total_price)
-            }, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = UserSubscriptionSerializer(user_subscription)
+
+        return Response({
+            "detail": "User subscription data retrieved successfully.",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)

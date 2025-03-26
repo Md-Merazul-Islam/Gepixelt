@@ -139,9 +139,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
+    permission_classes = [IsAdminOrHasRoleAdmin]
 
-    # Default permission for list and retrieve (GET)
-    permission_classes = [AllowAny]
 
     def get_queryset(self):
         category_id = self.request.query_params.get('category', None)

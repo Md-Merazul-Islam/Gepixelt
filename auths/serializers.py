@@ -1,24 +1,24 @@
+from utils.upload_utils import upload_file_to_digital_ocean
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
 User = get_user_model()
 
-from utils.upload_utils import upload_file_to_digital_ocean
-
-from rest_framework import serializers
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+
 class UserSerializer(serializers.ModelSerializer):
     # Temporary field for image upload (write-only)
-    photo_tmp = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    photo_tmp = serializers.ImageField(
+        required=False, allow_null=True, write_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email',  'role', 'address',
-                  'phone_number', 'photo', 'photo_tmp','balance','trial_status','city','postal_code')
-        read_only_fields = ('id','username', 'email','balance', 'trial_status')
+        fields = ('id', 'first_name', 'last_name', 'username', 'email',  'role', 'address',
+                  'phone_number', 'photo', 'photo_tmp', 'balance', 'trial_status', 'city', 'postal_code')
+        read_only_fields = ('id', 'username', 'email',
+                            'balance', 'trial_status')
 
     def create(self, validated_data):
         # Handle image upload if provided
@@ -26,7 +26,7 @@ class UserSerializer(serializers.ModelSerializer):
 
         if photo_tmp:
             uploaded_image_url = upload_file_to_digital_ocean(photo_tmp)
-            validated_data['photo'] = uploaded_image_url  
+            validated_data['photo'] = uploaded_image_url
 
         user = User.objects.create(**validated_data)
         return user
@@ -37,7 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
 
         if photo_tmp:
             uploaded_image_url = upload_file_to_digital_ocean(photo_tmp)
-            validated_data['photo'] = uploaded_image_url  
+            validated_data['photo'] = uploaded_image_url
 
         return super().update(instance, validated_data)
 
@@ -46,11 +46,9 @@ class UserSerializer(serializers.ModelSerializer):
         # Ensure string fields are cleaned properly
         for key in ['username', 'role', 'address', 'phone_number']:
             if isinstance(data.get(key), str):
-                data[key] = data[key].strip()  
+                data[key] = data[key].strip()
 
         return data
-
-
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -58,7 +56,8 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password','phone_number','address','city','postal_code', 'confirm_password']
+        fields = ['username', 'email', 'password', 'phone_number',
+                  'address', 'city', 'postal_code', 'confirm_password']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -80,6 +79,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         if User.objects.filter(username=data['username']).exists():
             raise serializers.ValidationError(
                 {"username": "Username already exists."})
+
+        if User.objects.filter(username=data['username']).exists():
+            raise serializers.ValidationError(
+                {"phone_number": "Phone number already exists."})
 
         return data
 
@@ -107,18 +110,20 @@ class LoginSerializer(serializers.Serializer):
         else:
             user = User.objects.filter(username=identifier).first()
 
-
         # If the user is not found, raise an error for identifier
         if not user:
-            raise serializers.ValidationError({"identifier": "Invalid credentials. Please check your email or username."})
+            raise serializers.ValidationError(
+                {"identifier": "Invalid credentials. Please check your email or username."})
 
         # Check if the user is active
         if not user.is_active:
-            raise serializers.ValidationError({"identifier": "Your account is not active. Please verify your email."})
+            raise serializers.ValidationError(
+                {"identifier": "Your account is not active. Please verify your email."})
 
         # Check password manually and raise an error for password
         if not user.check_password(password):
-            raise serializers.ValidationError({"password": "Incorrect password. Please try again."})
+            raise serializers.ValidationError(
+                {"password": "Incorrect password. Please try again."})
 
         # Authenticate the user with the provided password if the account is active and verified
         user = authenticate(username=user.username, password=password)
@@ -133,6 +138,7 @@ class LoginSerializer(serializers.Serializer):
 class TokenSerializer(serializers.Serializer):
     refresh = serializers.CharField()
     access = serializers.CharField()
+
     def to_representation(self, instance):
         return {
             'access': instance.access_token,

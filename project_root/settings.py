@@ -27,35 +27,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
     'rest_framework',  # Rest framework
-
-    # Required by allauth
-    'django.contrib.sites',
-
-
-    'corsheaders',
-
-    # Django Allauth
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    # Required by allauth
+    'django.contrib.sites',
+    'corsheaders',
+    # Django Allauth
     'drf_yasg',
-
-
-
-
     # Local apps
     'auths',
     'products',
     'payments',
     'orders',
     'dashboard',
-
-
-
-
-
+    'django_filters',
     # for superbase data basee
     "whitenoise.runserver_nostatic",
 

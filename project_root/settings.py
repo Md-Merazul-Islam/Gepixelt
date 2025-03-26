@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django_filters',
     # for superbase data basee
     "whitenoise.runserver_nostatic",
+    'storages',
 
 ]
 
@@ -306,12 +307,7 @@ DATABASES = {
 }
 
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
-STATIC_URL = "/static/"
-# DigitalOcean Spaces (similar to AWS S3).----------------------------------------------------------------
-
-# # DigitalOcean Spaces Credentials
+# DigitalOcean Spaces Credentials
 AWS_S3_ENDPOINT_URL = os.getenv(
     "AWS_S3_ENDPOINT_URL", "https://nyc3.digitaloceanspaces.com")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -321,29 +317,27 @@ AWS_REGION = "nyc3"
 
 AWS_S3_ADDRESSING_STYLE = "virtual"
 
-
 # Public media file access (change ACL if needed)
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
     "ACL": "public-read",
 }
 
-# DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-MEDIA_URL = f"https://{AWS_S3_ENDPOINT_URL}/"
-# DigitalOcean Spaces Bucket URL
+# Static files (WhiteNoise)
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/static/"
+STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split('//')[1]}/static/"
+
+
+# Media files (DigitalOcean Spaces)
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
 
-# Static files (only if using DigitalOcean Spaces for static assets)
-# STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/static/"
-
+# Stripe configuration (if using Stripe)
 STRIPE_TEST_SECRET_KEY = os.getenv("STRIPE_TEST_SECRET_KEY")
 STRIPE_ENDPOINT_SECRET = os.getenv("STRIPE_ENDPOINT_SECRET")
-# STRIPE_TEST_PUBLIC_KEY = os.getenv("STRIPE_TEST_PUBLIC_KEY")
 
-
-# settings.py
-
-# Celery Configuration
+# Celery Configuration (if using Celery)
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'  # Redis URL
 CELERY_ACCEPT_CONTENT = ['json']  # Accept only JSON content
 CELERY_TASK_SERIALIZER = 'json'  # Task data serialization method

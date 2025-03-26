@@ -188,14 +188,168 @@ def export_orders_excel(request):
         worksheet.column_dimensions['E'].width = 40  # Address column
         worksheet.column_dimensions['F'].width = 15  # City column
         worksheet.column_dimensions['G'].width = 15  # Postal Code column
-        worksheet.column_dimensions['H'].width = 30 #ordered_date
-        worksheet.column_dimensions['I'].width = 30 #receive_date
-        worksheet.column_dimensions['J'].width = 15 #total_price
-        worksheet.column_dimensions['K'].width = 15 #status
-        worksheet.column_dimensions['L'].width = 15 #items
-        worksheet.column_dimensions['L'].h = 15 #items
+        worksheet.column_dimensions['H'].width = 30  # ordered_date
+        worksheet.column_dimensions['I'].width = 30  # receive_date
+        worksheet.column_dimensions['J'].width = 15  # total_price
+        worksheet.column_dimensions['K'].width = 15  # status
+        worksheet.column_dimensions['L'].width = 15  # items
+        worksheet.column_dimensions['L'].h = 15  # items
 
-         # Set row height for row 1 (header row)
+        # Set row height for row 1 (header row)
+        # Set height of row 1 (header) to 30
+        worksheet.row_dimensions[1].height = 30
+
+    return response
+
+
+# this is on german language
+
+@api_view(['GET'])
+def export_orders_excel_by_german(request):
+    # Get today's date as default if no date is provided
+    today = datetime.today().date()
+
+    # Get the date filter from the request (default is today's date)
+    date_filter = request.GET.get('receive_date', str(today))  # Default to today's date if no date is provided
+    filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
+
+    # Fetch orders with related order items and user, and filter by receive_date
+    orders = Order.objects.prefetch_related('items').select_related('user').filter(receive_date=filter_date)
+
+    data = []
+
+    for order in orders:
+        customer_name = order.user.username
+        customer_email = order.user.email
+        customer_number = order.user.phone_number
+        address = order.user.address
+        city = order.user.city
+        postal_code = order.user.postal_code
+        order_items = []
+
+        # Convert datetime fields to timezone-unaware (if they are timezone-aware)
+        order_date = convert_to_naive_datetime(order.order_date)
+        receive_date = convert_to_naive_datetime(order.receive_date)
+
+        # Calculate total price for the order by summing the prices of all order items
+        total_order_price = sum(item.price for item in order.items.all())  # Sum of all item prices
+
+        # Iterate through related order items
+        for item in order.items.all():  # Use 'items' instead of 'order_items'
+            order_items.append({
+                "product": item.product.name,  # Assuming `product.name` exists
+                "quantity": item.quantity,
+                # Convert price to string if it's a decimal field
+                "price": str(item.price)
+            })
+
+        # Append the order data (translated fields)
+        data.append({
+            "Bestell-ID": order.id,  # Order ID in German
+            "Kundenname": customer_name,  # Customer Name in German
+            "Kunden-E-Mail": customer_email,  # Customer Email in German
+            "Kunden-Nr": customer_number,  # Customer Number in German
+            "Adresse": address,  # Address in German
+            "Stadt": city,  # City in German
+            "Postleitzahl": postal_code,  # Postal Code in German
+            "Bestelldatum": order_date,  # Order Date in German
+            "Erhaltungsdatum": receive_date,  # Receive Date in German
+            "Gesamtpreis": str(total_order_price),  # Total Price in German
+            "Status": order.status,  # Status in German (if necessary, you can manually translate status values)
+            "Artikel": order_items  # Items in German
+        })
+
+    # Create a pandas DataFrame from the data
+    df = pd.DataFrame(data)
+
+    # Create a response to download the file
+    response = HttpResponse(content_type='application/vnd.ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="alle_bestellungen.xlsx"'  # Filename in German
+
+    # Use pandas to write the data to Excel
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+
+        # Access the workbook and the active sheet
+        workbook = writer.book
+        worksheet = workbook.active
+
+        # Set column widths (in German)
+        worksheet.column_dimensions['A'].width = 15  # Bestell-ID column
+        worksheet.column_dimensions['B'].width = 20  # Kundenname column
+        worksheet.column_dimensions['C'].width = 30  # Kunden-E-Mail column
+        worksheet.column_dimensions['D'].width = 20  # Kunden-Nr column
+        worksheet.column_dimensions['E'].width = 40  # Adresse column
+        worksheet.column_dimensions['F'].width = 15  # Stadt column
+        worksheet.column_dimensions['G'].width = 15  # Postleitzahl column
+        worksheet.column_dimensions['H'].width = 30  # Bestelldatum column
+        worksheet.column_dimensions['I'].width = 30  # Erhaltungsdatum column
+        worksheet.column_dimensions['J'].width = 15  # Gesamtpreis column
+        worksheet.column_dimensions['K'].width = 15  # Status column
+        worksheet.column_dimensions['L'].width = 15  # Artikel column
+
+        # Set row height for row 1 (header row)
         worksheet.row_dimensions[1].height = 30  # Set height of row 1 (header) to 30
 
     return response
+from django.http import JsonResponse
+
+
+
+@api_view(['GET'])
+def export_orders_json(request):
+    # Get today's date as default if no date is provided
+    today = datetime.today().date()
+
+    # Get the date filter from the request (default is today's date)
+    date_filter = request.GET.get('receive_date', str(today))  # Default to today's date if no date is provided
+    filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
+
+    # Fetch orders with related order items and user, and filter by receive_date
+    orders = Order.objects.prefetch_related('items').select_related('user').filter(receive_date=filter_date)
+
+    data = []
+
+    for order in orders:
+        customer_name = order.user.username
+        customer_email = order.user.email
+        customer_number = order.user.phone_number
+        address = order.user.address
+        city = order.user.city
+        postal_code = order.user.postal_code
+        order_items = []
+
+        # Convert datetime fields to timezone-unaware (if they are timezone-aware)
+        order_date = convert_to_naive_datetime(order.order_date)
+        receive_date = convert_to_naive_datetime(order.receive_date)
+
+        # Calculate total price for the order by summing the prices of all order items
+        total_order_price = sum(item.price for item in order.items.all())  # Sum of all item prices
+
+        # Iterate through related order items
+        for item in order.items.all():  # Use 'items' instead of 'order_items'
+            order_items.append({
+                "product": item.product.name,  # Assuming `product.name` exists
+                "quantity": item.quantity,
+                # Convert price to string if it's a decimal field
+                "price": str(item.price)
+            })
+
+        # Append the order data (translated fields to German)
+        data.append({
+            "Bestell-ID": order.id,  # Order ID in German
+            "Kundenname": customer_name,  # Customer Name in German
+            "Kunden-E-Mail": customer_email,  # Customer Email in German
+            "Kunden-Nr": customer_number,  # Customer Number in German
+            "Adresse": address,  # Address in German
+            "Stadt": city,  # City in German
+            "Postleitzahl": postal_code,  # Postal Code in German
+            "Bestelldatum": order_date,  # Order Date in German
+            "Erhaltungsdatum": receive_date,  # Receive Date in German
+            "Gesamtpreis": str(total_order_price),  # Total Price in German
+            "Status": order.status,  # Status in German (if necessary, you can manually translate status values)
+            "Artikel": order_items  # Items in German
+        })
+
+    # Return the data as a JSON response
+    return JsonResponse(data, safe=False)

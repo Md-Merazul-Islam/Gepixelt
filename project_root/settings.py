@@ -100,7 +100,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'project_root.wsgi.application'
+# WSGI_APPLICATION = 'project_root.wsgi.application'
+WSGI_APPLICATION = 'project_root.wsgi.app'
 
 
 # Password validation
@@ -306,16 +307,16 @@ DATABASES = {
 # }
 
 # # Supabase (similar to AWS RDS).----------------------------------------------------------------
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'postgres',
-#         'USER': 'postgres.igsewvbxmhdfnqgjqnoi',
-#         'PASSWORD': '-*_u_4JaHnkcZnH',
-#         'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
-#         'PORT': '6543',
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres.hdpwndhwouuodnkqzffq',
+        'PASSWORD': 'viu8@UPQnuAQbKm',
+        'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
+        'PORT': '6543',
+    }
+}
 
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import OrderViewSet, OrderAPIView, CancelOrderAPIView,  OrderStatusUpdateView
+from .views import OrderViewSet, OrderAPIView, CancelOrderAPIView,  OrderStatusUpdateView,SendEmailView
 
 router = DefaultRouter()
 router.register(r'all', OrderViewSet)
@@ -15,4 +15,6 @@ urlpatterns = [
          name='cancel-order'),  # For cancel order
     path('<int:order_id>/update-status/',
          OrderStatusUpdateView.as_view(), name='order-status-update'),
+    
+     path('send-email/', SendEmailView.as_view(), name='send_email'),
 ]

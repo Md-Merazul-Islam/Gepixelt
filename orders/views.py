@@ -294,3 +294,22 @@ class OrderStatusUpdateView(APIView):
             return Response({"message": "Order status updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
 
         return Response({"message": "Invalid data", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .tasks import send_email_task
+
+class SendEmailView(APIView):
+    def post(self, request, *args, **kwargs):
+        recipient_email = request.data.get("email")
+
+        if recipient_email:
+            # Delay the email sending by 1 minute (60 seconds)
+            send_email_task.apply_async((recipient_email,), countdown=60)
+
+            return Response({"message": "Email will be sent in 1 minute."}, status=status.HTTP_200_OK)
+        
+        return Response({"error": "Email address is required."}, status=status.HTTP_400_BAD_REQUEST)

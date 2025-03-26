@@ -12,6 +12,12 @@ from utils  .utils import success_response, failure_response
 from rest_framework.pagination import PageNumberPagination
 from django_filters import rest_framework as filters
 
+def success_response(message, data, status_code=status.HTTP_200_OK):
+    return Response({"success": True, "statusCode": status_code, "message": message, "data": data}, status=status_code)
+
+
+def failure_response(message, error, status_code=status.HTTP_400_BAD_REQUEST):
+    return Response({"success": False, "statusCode": status_code, "message": message, "error": error}, status=status_code)
 
 class OrderFilter(filters.FilterSet):
     status = filters.ChoiceFilter(
@@ -94,7 +100,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Override destroy to use success_response."""
         instance = self.get_object()
         instance.delete()
-        return success_response("Order deleted successfully", None, status.HTTP_204_NO_CONTENT)
+        return success_response("Order deleted successfully", {}, status.HTTP_204_NO_CONTENT)
 
 
 class OrderAPIView(APIView):
@@ -107,9 +113,9 @@ class OrderAPIView(APIView):
             try:
                 order = Order.objects.get(id=order_id, user=request.user)
                 serializer = OrderSerializer(order)
-                return success_response("Order retrieved successfully", serializer.data, status_code=status.HTTP_200_OK)
+                return success_response("Order retrieved successfully", serializer.data, status.HTTP_200_OK)
             except Order.DoesNotExist:
-                return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to view it.", status_code=status.HTTP_404_NOT_FOUND)
+                return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to view it.", status.HTTP_404_NOT_FOUND)
         else:
             # Retrieve all orders for the authenticated user
             orders = Order.objects.filter(user=request.user).annotate(
@@ -123,7 +129,7 @@ class OrderAPIView(APIView):
                 )
             ).order_by('status_order')
             serializer = OrderSerializer(orders, many=True)
-            return success_response("My Orders retrieved successfully", serializer.data, status_code=status.HTTP_200_OK)
+            return success_response("My Orders retrieved successfully", serializer.data, status.HTTP_200_OK)
 
     def post(self, request):
         """Create a new order for the authenticated user."""
@@ -133,36 +139,36 @@ class OrderAPIView(APIView):
         if serializer.is_valid():
             # Associate the order with the authenticated user
             serializer.save(user=request.user)
-            return success_response("Order created successfully", serializer.data, status_code=status.HTTP_201_CREATED)
-        return failure_response("Order creation failed", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
+            return success_response("Order created successfully", serializer.data, status.HTTP_201_CREATED)
+        return failure_response("Order creation failed", serializer.errors, status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, order_id):
         """Update an existing order for the authenticated user."""
         try:
             order = Order.objects.get(id=order_id, user=request.user)
         except Order.DoesNotExist:
-            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to update it.", status_code=status.HTTP_404_NOT_FOUND)
+            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to update it.", status.HTTP_404_NOT_FOUND)
 
         serializer = OrderSerializer(
             order, data=request.data, partial=False)  # Full update
         if serializer.is_valid():
             serializer.save()
-            return success_response("Order updated successfully", serializer.data, status_code=status.HTTP_200_OK)
-        return failure_response("Order update failed", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
+            return success_response("Order updated successfully", serializer.data, status.HTTP_200_OK)
+        return failure_response("Order update failed", serializer.errors, status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, order_id):
         """Partially update an existing order for the authenticated user."""
         try:
             order = Order.objects.get(id=order_id, user=request.user)
         except Order.DoesNotExist:
-            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to update it.", status_code=status.HTTP_404_NOT_FOUND)
+            return failure_response("Order not found", "Order with this ID doesn't exist or you don't have permission to update it.", status.HTTP_404_NOT_FOUND)
 
         serializer = OrderSerializer(
             order, data=request.data, partial=True)  # Partial update
         if serializer.is_valid():
             serializer.save()
-            return success_response("Order updated successfully", serializer.data, status_code=status.HTTP_200_OK)
-        return failure_response("Order update failed", serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
+            return success_response("Order updated successfully", serializer.data, status.HTTP_200_OK)
+        return failure_response("Order update failed", serializer.errors, status.HTTP_400_BAD_REQUEST)
 
 
 class CancelOrderAPIView(APIView):

@@ -1,26 +1,28 @@
-from rest_framework import status
+from rest_framework.views import exception_handler
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-def success_response(message, data, status_code=status.HTTP_200_OK):
-    return Response({
-        "success": True,
-        "statusCode": status_code,
-        "message": message,
-        "data": data
-    }, status=status_code)
 
-
-def failure_response(message, error, status_code=status.HTTP_400_BAD_REQUEST):
-    if 'non_field_errors' in error:
-        error_message = error['non_field_errors'][0] 
-    else:
-        error_message = error  
-    
+def failure_response(message, status=403):
     return Response({
         "success": False,
-        "statusCode": status_code,
         "message": message,
-        "error": {
-            "message": error_message
-        }
-    }, status=status_code)
+        "data": {}
+    }, status=status)
+
+
+def success_response(data, message="Success", status=200):
+    return Response({
+        "success": True,
+        "message": message,
+        "data": data
+    }, status=status)
+
+
+def custom_exception_handler(exc, context):
+    response = exception_handler(exc, context)
+
+    if isinstance(exc, PermissionDenied):
+        return failure_response("You do not have permission to perform this action.", status=403)
+
+    return response

@@ -1,5 +1,7 @@
 # This allows public access (no authentication)
 
+from django.contrib.auth.backends import ModelBackend
+from utils.IsAdminOrStaff import IsAdminOrStaff
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework.pagination import PageNumberPagination
 import random
@@ -8,7 +10,7 @@ import string
 from django.contrib.auth import login, get_user_model, update_session_auth_hash
 from django.contrib.auth.hashers import make_password
 from django.core.mail import EmailMultiAlternatives
-from django.shortcuts import  get_object_or_404
+from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from rest_framework import status
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -22,7 +24,6 @@ from .serializers import (
     ForgotPasswordSerializer, ResetPasswordSerializer, PasswordChangeSerializer, CustomUserAllSerializer
 )
 from rest_framework.authentication import TokenAuthentication
-
 
 
 User = get_user_model()
@@ -51,21 +52,23 @@ def failure_response(message, error, status_code=status.HTTP_400_BAD_REQUEST):
 def is_valid_postal_code(postal_code):
     return postal_code.startswith('9')
 
+
 class PostalCodeView(APIView):
     permission_classes = [AllowAny]
-    
+
     def post(self, request):
         postal_code = request.data.get("postal_code")
         if is_valid_postal_code(postal_code):
-            email = request.data.get("email")  
+            email = request.data.get("email")
             user = get_user_model().objects.filter(email=email).first()
-            
+
             if user:
                 return Response({"message": "User already registered, redirecting to login."}, status=status.HTTP_200_OK)
             else:
                 return Response({"message": "User is new, redirecting to registration."}, status=status.HTTP_200_OK)
-        
+
         return Response({"error": "Postal code is not valid. It should start with '9'."}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ProfileView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
@@ -99,7 +102,7 @@ class CustomRefreshToken(RefreshToken):
 
         return refresh_token
 
-from django.contrib.auth.backends import ModelBackend
+
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
     serializer_class = UserRegisterSerializer
@@ -108,7 +111,7 @@ class RegisterAPIView(APIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            
+
             if not user.is_active:
                 user.is_active = True
                 user.save()
@@ -245,7 +248,7 @@ class PasswordChangeView(APIView):
 
 class ForgotPasswordView(APIView):
     """Send OTP to user's email for password reset"""
-    permission_classes= [AllowAny]
+    permission_classes = [AllowAny]
     authentication_classes = [TokenAuthentication]
 
     def post(self, request):
@@ -335,9 +338,6 @@ class ResetPasswordView(APIView):
         return failure_response({"message": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
-
 class CustomPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
@@ -345,10 +345,12 @@ class CustomPagination(PageNumberPagination):
 
 
 # Custom View for All Users
+
+
 class AllUsers(viewsets.ModelViewSet):
     queryset = User.objects.filter(is_active=True).order_by('id')
     serializer_class = CustomUserAllSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminOrStaff]
     pagination_class = CustomPagination
 
     # GET - Retrieve List of Active Users
@@ -419,4 +421,3 @@ class AllUsers(viewsets.ModelViewSet):
             return success_response("User deactivated successfully", None, status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return failure_response("Failed to deactivate user", str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
-

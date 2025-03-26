@@ -29,11 +29,12 @@ class OrderPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+from  utils.IsAdminOrStaff import IsAdminOrStaff
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().order_by('-order_date')
     serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminOrStaff]
     pagination_class = OrderPagination
     filter_class = OrderFilter
 

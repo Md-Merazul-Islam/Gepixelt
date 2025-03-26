@@ -1,3 +1,4 @@
+from utils.IsAdminOrStaff import IsAdminOrStaff
 from rest_framework.pagination import PageNumberPagination
 from . serializers import UserSubscriptionSerializer
 from rest_framework.views import APIView
@@ -71,7 +72,8 @@ class ProductViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
         if serializer.is_valid():
             self.perform_update(serializer)
             return success_response("Product updated successfully.", serializer.data)
@@ -82,13 +84,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         return success_response("Product deleted successfully.", {})
 
-
-
+from utils.IsAdminOrStaff import IsAdminOrHasRoleAdmin
 # SubscriptionPlan ViewSet to list and retrieve subscription plans
 class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     queryset = SubscriptionPlan.objects.all()
     serializer_class = SubscriptionPlanSerializer
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrHasRoleAdmin]
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -110,7 +111,8 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
         if serializer.is_valid():
             self.perform_update(serializer)
             return success_response("Subscription plan updated successfully.", serializer.data)
@@ -120,17 +122,18 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         self.perform_destroy(instance)
         return success_response("Subscription plan deleted successfully.", {})
-    
+
 
 class CustomPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+
 class UserSubscriptionList(viewsets.ReadOnlyModelViewSet):
     queryset = UserSubscription.objects.all()
     serializer_class = UserSubscriptionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrStaff]
     pagination_class = CustomPagination
 
     def list(self, request, *args, **kwargs):
@@ -194,7 +197,8 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
         user = request.user
 
-        subscription, created = UserSubscription.objects.get_or_create(user=user, plan=plan)
+        subscription, created = UserSubscription.objects.get_or_create(
+            user=user, plan=plan)
 
         if not created:
             subscription.plan = plan
@@ -340,8 +344,10 @@ class CompletePaymentView(APIView):
 
 
 # Transaction List API to view all transactions of a logged-in user
+
+
 class TransactionListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrStaff]
 
     def get(self, request):
         user = request.user

@@ -14,8 +14,7 @@ router.register(r'all-subscriptions', UserSubscriptionList , basename='all-subsc
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('complete-payment/<int:plan_id>/',
-         CompletePaymentView.as_view(), name='complete_payment'),
+    path('complete-payment/<int:plan_id>/',CompletePaymentView.as_view(), name='complete_payment'),
     path('transactions/', TransactionListView.as_view(),
          name='transaction-list'),  # List all transactions
     path('user-subscription/', UserSubscriptionDetailView.as_view(),name='user-subscription-detail'),

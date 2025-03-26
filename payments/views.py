@@ -21,6 +21,8 @@ from django.utils import timezone
 from datetime import timedelta
 from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
+from django.template.loader import render_to_string
+from django.core.mail import EmailMessage
 
 User = get_user_model()
 
@@ -300,28 +302,23 @@ class CompletePaymentView(APIView):
 
                 # Send Subscription Confirmation Email
                 subject = f"Subscription Confirmation: {plan.name}"
-                message = f"""
-                Hello {user.username},
+                end_date = user_subscription.end_date.strftime('%d.%m.%Y') 
+                message = render_to_string(
+                    'subscription_confirmation.html', {
+                        'user': user,
+                        'plan': plan,
+                        'transaction': transaction
+                    })
 
-                Congratulations! You have successfully subscribed to the "{plan.name}" plan.
-
-                Here are your payment details:
-                - Plan: {plan.name}
-                - Amount Paid: ${plan.price}
-                - Transaction ID: {transaction.transaction_id}
-
-                You can now access the benefits of your subscription.
-
-                Best Regards,
-                Your Subscription Team
-                """
-                send_mail(
+                # Send Subscription Confirmation Email
+                email = EmailMessage(
                     subject,
                     message,
                     settings.DEFAULT_FROM_EMAIL,
-                    [user_email],
-                    fail_silently=False,
+                    [user.email],  # user.email should be the recipient's email
                 )
+                email.content_subtype = "html"  # This is important to send as HTML email
+                email.send(fail_silently=False)
 
                 return Response({
                     "detail": f"Successfully subscribed to {plan.name}.",
@@ -343,8 +340,6 @@ class CompletePaymentView(APIView):
             return Response({"detail": f"An error occurred: {str(e)}"}, status=500)
 
 
-# Transaction List API to view all transactions of a logged-in user
-
 
 class TransactionListView(APIView):
     permission_classes = [IsAdminOrStaff]
@@ -361,7 +356,6 @@ class TransactionListView(APIView):
 
 class UserSubscriptionDetailView(APIView):
     permission_classes = [IsAuthenticated]
-
     def get(self, request):
         user = request.user
 

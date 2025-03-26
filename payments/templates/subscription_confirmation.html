@@ -76,18 +76,16 @@
                     of your subscription:
                 </p>
 
-                <!-- Subscription Details -->
-                <div style="margin: 30px auto; color: rgb(14, 5, 5); border-radius: 8px;">
-                    <p style="font-size: 18px; font-weight: 600; margin-bottom: 15px;">Your Subscription Details:</p>
-                    <p style="font-size: 16px; margin-bottom: 10px;"><strong>Plan Name:</strong> {{ plan.name }}</p>
-                    <p style="font-size: 16px; margin-bottom: 10px;"><strong>Amount Paid:</strong> ${{ plan.price }}</p>
-                    <p style="font-size: 16px; margin-bottom: 10px;"><strong>Transaction ID:</strong> {{
-                        transaction.transaction_id }}</p>
-                    <p style="font-size: 16px; margin-bottom: 10px;"><strong>Subscription Status:</strong> {{
-                        user_subscription.status }}</p>
-                    <p style="font-size: 16px; margin-bottom: 10px;"><strong>Plan Validity:</strong> Valid until {{
-                        end_date }}</p>
-                </div>
+               <!-- Subscription Details -->
+               <div
+               style="margin: 30px auto; max-width: 320px; padding: 20px; text-align: center; background-color:rgb(237, 237, 237); color: white; border-radius: 8px;">
+               <p style="font-size: 18px; font-weight: 600; margin-bottom: 15px;">Your Subscription Details:</p>
+               <p style="font-size: 16px; margin-bottom: 10px;"><strong>Plan Name:</strong> {{ plan.name }}</p>
+               <p style="font-size: 16px; margin-bottom: 10px;"><strong>Amount Paid:</strong> ${{ plan.price }}</p>
+               <p style="font-size: 16px; margin-bottom: 10px;"><strong>Transaction ID:</strong> {{ transaction.transaction_id }}</p>
+               <p style="font-size: 16px; margin-bottom: 10px;"><strong>Subscription Status:</strong> {{ user_subscription.status }}</p>
+               <p style="font-size: 16px; margin-bottom: 10px;"><strong>Plan Validity:</strong> Valid until {{ end_date }}</p>
+           </div>
 
                 <div
                     style="background-color: #FFF9F0; border-left: 4px solid #E0921B; padding: 15px; margin: 25px 0; border-radius: 0 8px 8px 0;">

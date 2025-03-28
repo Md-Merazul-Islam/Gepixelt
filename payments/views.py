@@ -223,124 +223,124 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
 
 
 # CompletePaymentView handles the payment process and subscription activation
-class CompletePaymentView(APIView):
-    permission_classes = [IsAuthenticated]
+# class CompletePaymentView(APIView):
+#     permission_classes = [IsAuthenticated]
 
-    def post(self, request, plan_id):
-        user = request.user
-        user_email = request.data.get("email")
-        payment_method_id = request.data.get("payment_method_id")
+#     def post(self, request, plan_id):
+#         user = request.user
+#         user_email = request.data.get("email")
+#         payment_method_id = request.data.get("payment_method_id")
 
-        # Retrieve the selected plan
-        plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+#         # Retrieve the selected plan
+#         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
 
-        # Ensure `payment_method_id` is provided
-        if not payment_method_id:
-            return Response({"detail": "Payment method ID is required."}, status=400)
+#         # Ensure `payment_method_id` is provided
+#         if not payment_method_id:
+#             return Response({"detail": "Payment method ID is required."}, status=400)
 
-        try:
-            # Check if the user already has a Stripe Customer ID
-            if not user.stripe_customer_id:
-                customer = stripe.Customer.create(
-                    email=user_email,
-                    name=user.username
-                )
-                user.stripe_customer_id = customer.id
-                user.save()
+#         try:
+#             # Check if the user already has a Stripe Customer ID
+#             if not user.stripe_customer_id:
+#                 customer = stripe.Customer.create(
+#                     email=user_email,
+#                     name=user.username
+#                 )
+#                 user.stripe_customer_id = customer.id
+#                 user.save()
 
-            # Attach PaymentMethod to the Customer
-            stripe.PaymentMethod.attach(
-                payment_method_id,
-                customer=user.stripe_customer_id
-            )
+#             # Attach PaymentMethod to the Customer
+#             stripe.PaymentMethod.attach(
+#                 payment_method_id,
+#                 customer=user.stripe_customer_id
+#             )
 
-            # Create a PaymentIntent using the Customer and attached PaymentMethod
-            payment_intent = stripe.PaymentIntent.create(
-                amount=int(plan.price * 100),  # Convert to cents
-                currency="usd",
-                customer=user.stripe_customer_id,  # Use the stored Customer ID
-                payment_method=payment_method_id,
-                confirm=True,
-                receipt_email=user_email,  # Send receipt to email
-                automatic_payment_methods={
-                    "enabled": True, "allow_redirects": "never"
-                }
-            )
+#             # Create a PaymentIntent using the Customer and attached PaymentMethod
+#             payment_intent = stripe.PaymentIntent.create(
+#                 amount=int(plan.price * 100),  # Convert to cents
+#                 currency="usd",
+#                 customer=user.stripe_customer_id,  # Use the stored Customer ID
+#                 payment_method=payment_method_id,
+#                 confirm=True,
+#                 receipt_email=user_email,  # Send receipt to email
+#                 automatic_payment_methods={
+#                     "enabled": True, "allow_redirects": "never"
+#                 }
+#             )
 
-            # Check if the payment was successful
-            if payment_intent.status == 'succeeded':
-                # Save Transaction Data in Database
-                transaction = Transaction.objects.create(
-                    user=user,
-                    plan=plan,
-                    transaction_id=payment_intent.id,
-                    amount=plan.price,
-                    payment_status="SUCCESS",  # Correct field
-                    payment_intent_id=payment_intent.id,
-                    created_at=timezone.now()  # Use current time for transaction creation
-                )
+#             # Check if the payment was successful
+#             if payment_intent.status == 'succeeded':
+#                 # Save Transaction Data in Database
+#                 transaction = Transaction.objects.create(
+#                     user=user,
+#                     plan=plan,
+#                     transaction_id=payment_intent.id,
+#                     amount=plan.price,
+#                     payment_status="SUCCESS",  # Correct field
+#                     payment_intent_id=payment_intent.id,
+#                     created_at=timezone.now()  # Use current time for transaction creation
+#                 )
 
-                # Create or Update User Subscription (Enrollment in Subscription Plan)
-                user_subscription, created = UserSubscription.objects.get_or_create(
-                    user=user, plan=plan)
+#                 # Create or Update User Subscription (Enrollment in Subscription Plan)
+#                 user_subscription, created = UserSubscription.objects.get_or_create(
+#                     user=user, plan=plan)
 
-                # If subscription exists, update the subscription details
-                if not created:
-                    user_subscription.balance += plan.price  # Add plan price to the balance
-                    user_subscription.status = 'active'  # Mark as active
-                    user_subscription.end_date = timezone.now(
-                    ) + timedelta(days=plan.duration_days)  # Set end date
-                    user_subscription.save()
-                else:
-                    # If it's a new subscription, set it to active and initial balance
-                    user_subscription.balance = plan.price
-                    user_subscription.status = 'active'
-                    user_subscription.end_date = timezone.now(
-                    ) + timedelta(days=plan.duration_days)  # Set end date
-                    user_subscription.save()
+#                 # If subscription exists, update the subscription details
+#                 if not created:
+#                     user_subscription.balance += plan.price  # Add plan price to the balance
+#                     user_subscription.status = 'active'  # Mark as active
+#                     user_subscription.end_date = timezone.now(
+#                     ) + timedelta(days=plan.duration_days)  # Set end date
+#                     user_subscription.save()
+#                 else:
+#                     # If it's a new subscription, set it to active and initial balance
+#                     user_subscription.balance = plan.price
+#                     user_subscription.status = 'active'
+#                     user_subscription.end_date = timezone.now(
+#                     ) + timedelta(days=plan.duration_days)  # Set end date
+#                     user_subscription.save()
 
-                # Update the user's balance after the transaction
-                user.balance += plan.price  # Add the subscription cost to the user balance
-                user.save()  # Save the updated user balance
+#                 # Update the user's balance after the transaction
+#                 user.balance += plan.price  # Add the subscription cost to the user balance
+#                 user.save()  # Save the updated user balance
 
-                # Send Subscription Confirmation Email
-                subject = f"Subscription Confirmation: {plan.name}"
-                end_date = user_subscription.end_date.strftime('%d.%m.%Y')
-                message = render_to_string(
-                    'subscription_confirmation.html', {
-                        'user': user,
-                        'plan': plan,
-                        'transaction': transaction
-                    })
+#                 # Send Subscription Confirmation Email
+#                 subject = f"Subscription Confirmation: {plan.name}"
+#                 end_date = user_subscription.end_date.strftime('%d.%m.%Y')
+#                 message = render_to_string(
+#                     'subscription_confirmation.html', {
+#                         'user': user,
+#                         'plan': plan,
+#                         'transaction': transaction
+#                     })
 
-                # Send Subscription Confirmation Email
-                email = EmailMessage(
-                    subject,
-                    message,
-                    settings.EMAIL_HOST_USER,
-                    [user.email],  # user.email should be the recipient's email
-                )
-                email.content_subtype = "html"  # This is important to send as HTML email
-                email.send(fail_silently=False)
+#                 # Send Subscription Confirmation Email
+#                 email = EmailMessage(
+#                     subject,
+#                     message,
+#                     settings.EMAIL_HOST_USER,
+#                     [user.email],  # user.email should be the recipient's email
+#                 )
+#                 email.content_subtype = "html"  # This is important to send as HTML email
+#                 email.send(fail_silently=False)
 
-                return Response({
-                    "detail": f"Successfully subscribed to {plan.name}.",
-                    "transaction_id": transaction.transaction_id,
-                    "plan": plan.name,
-                    "amount": str(plan.price),
-                    "subscription_status": user_subscription.status,
-                    "user_balance": user.balance  # Show updated user balance
-                }, status=201)
+#                 return Response({
+#                     "detail": f"Successfully subscribed to {plan.name}.",
+#                     "transaction_id": transaction.transaction_id,
+#                     "plan": plan.name,
+#                     "amount": str(plan.price),
+#                     "subscription_status": user_subscription.status,
+#                     "user_balance": user.balance  # Show updated user balance
+#                 }, status=201)
 
-            else:
-                return Response({"detail": "Payment failed."}, status=400)
+#             else:
+#                 return Response({"detail": "Payment failed."}, status=400)
 
-        except stripe.error.CardError as e:
-            return Response({"detail": f"Card error: {str(e)}"}, status=400)
-        except stripe.error.StripeError as e:
-            return Response({"detail": f"Stripe error: {str(e)}"}, status=500)
-        except Exception as e:
-            return Response({"detail": f"An error occurred: {str(e)}"}, status=500)
+#         except stripe.error.CardError as e:
+#             return Response({"detail": f"Card error: {str(e)}"}, status=400)
+#         except stripe.error.StripeError as e:
+#             return Response({"detail": f"Stripe error: {str(e)}"}, status=500)
+#         except Exception as e:
+#             return Response({"detail": f"An error occurred: {str(e)}"}, status=500)
 
 
 class TransactionListView(APIView):
@@ -378,3 +378,148 @@ class UserSubscriptionDetailView(APIView):
             "detail": "User subscription data retrieved successfully.",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+
+
+
+from django.http import JsonResponse
+
+class CompletePaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, plan_id):
+        user = request.user
+        user_email = request.data.get("email")
+        payment_method_id = request.data.get("payment_method_id")
+        payment_method_type = request.data.get("payment_method")  # e.g., 'card', 'apple_pay', etc.
+
+        # Retrieve the selected plan
+        plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+
+        # Ensure `payment_method_id` is provided
+        if not payment_method_id:
+            return JsonResponse({"detail": "Payment method ID is required."}, status=400)
+
+        try:
+            # Check if the user already has a Stripe Customer ID
+            if not user.stripe_customer_id:
+                customer = stripe.Customer.create(
+                    email=user_email,
+                    name=user.username
+                )
+                user.stripe_customer_id = customer.id
+                user.save()
+
+            # Attach PaymentMethod to the Customer
+            stripe.PaymentMethod.attach(
+                payment_method_id,
+                customer=user.stripe_customer_id
+            )
+
+            # Create a PaymentIntent using the Customer and attached PaymentMethod
+            payment_intent = stripe.PaymentIntent.create(
+                amount=int(plan.price * 100),  # Convert to cents
+                currency="usd",
+                customer=user.stripe_customer_id,  # Use the stored Customer ID
+                payment_method=payment_method_id,
+                confirm=True,
+                receipt_email=user_email,  # Send receipt to email
+                automatic_payment_methods={"enabled": True}
+            )
+
+            # Check if the payment was successful
+            if payment_intent.status == 'succeeded':
+                # Save Transaction Data in Database
+                transaction = Transaction.objects.create(
+                    user=user,
+                    plan=plan,
+                    transaction_id=payment_intent.id,
+                    amount=plan.price,
+                    payment_status="SUCCESS",
+                    payment_intent_id=payment_intent.id,
+                    created_at=timezone.now()
+                )
+
+                # Create or Update User Subscription
+                user_subscription, created = UserSubscription.objects.get_or_create(user=user, plan=plan)
+                if not created:
+                    user_subscription.balance += plan.price
+                    user_subscription.status = 'active'
+                    user_subscription.end_date = timezone.now() + timedelta(days=plan.duration_days)
+                    user_subscription.save()
+                else:
+                    user_subscription.balance = plan.price
+                    user_subscription.status = 'active'
+                    user_subscription.end_date = timezone.now() + timedelta(days=plan.duration_days)
+                    user_subscription.save()
+
+                # Update the user's balance
+                user.balance += plan.price
+                user.save()
+
+                # Send Subscription Confirmation Email
+                subject = f"Subscription Confirmation: {plan.name}"
+                end_date = user_subscription.end_date.strftime('%d.%m.%Y')
+                message = render_to_string(
+                    'subscription_confirmation.html', {
+                        'user': user,
+                        'plan': plan,
+                        'transaction': transaction
+                    })
+
+                email = EmailMessage(
+                    subject,
+                    message,
+                    settings.EMAIL_HOST_USER,
+                    [user.email],
+                )
+                email.content_subtype = "html"
+                email.send(fail_silently=False)
+
+                return JsonResponse({
+                    "detail": f"Successfully subscribed to {plan.name}.",
+                    "transaction_id": transaction.transaction_id,
+                    "plan": plan.name,
+                    "amount": str(plan.price),
+                    "subscription_status": user_subscription.status,
+                    "user_balance": user.balance
+                }, status=201)
+
+            else:
+                return JsonResponse({"detail": "Payment failed."}, status=400)
+
+        except stripe.error.CardError as e:
+            return JsonResponse({"detail": f"Card error: {str(e)}"}, status=400)
+        except stripe.error.StripeError as e:
+            return JsonResponse({"detail": f"Stripe error: {str(e)}"}, status=500)
+        except Exception as e:
+            return JsonResponse({"detail": f"An error occurred: {str(e)}"}, status=500)
+        
+from django.shortcuts import render, redirect
+def create_checkout_session(request):
+    YOUR_DOMAIN = "http://localhost:8000"  # Your website's domain
+
+    try:
+        # Create a Checkout session for a product subscription
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card', 'apple_pay'],  # Supported methods
+            line_items=[
+                {
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': 'My Product',
+                        },
+                        'unit_amount': 2000,  # Price in cents, so $20.00
+                    },
+                    'quantity': 1,
+                },
+            ],
+            mode='subscription',  # Can be 'payment' for one-time payments or 'subscription' for recurring
+            success_url=YOUR_DOMAIN + '/success/',
+            cancel_url=YOUR_DOMAIN + '/cancel/',
+        )
+        return redirect(checkout_session.url, code=303)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)})
+        

@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'payments',
     'orders',
     'dashboard',
-
+    'weekorder',
 
 
 
@@ -130,7 +130,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # extra settings add from me --------------------------------
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-  
+
 ]
 
 SITE_ID = 1
@@ -194,14 +194,12 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:8000',
     'http://localhost:8000',
     'https://*.127.0.0.1',
-    'https://axiom-cyber.onrender.com',
-    'https://axiom-cyber.vercel.app',
-    'https://axiom-cyber-frontend-nextjs.vercel.app',
+    'https://gepixelitfrontend.vercel.app',
+
 
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://axiom-cyber.onrender.com',
     'https://*.127.0.0.1',
     'http://localhost:8000',
     'http://127.0.0.1:5500',
@@ -209,8 +207,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
     'http://localhost:3000',
     'http://localhost:5173',
-    'https://axiom-cyber.vercel.app',
-    'https://axiom-cyber-frontend-nextjs.vercel.app',
+    'https://gepixelitfrontend.vercel.app',
 ]
 
 

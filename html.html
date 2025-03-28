@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Page</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    #payment-form {
+      width: 400px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .submit-button {
+      padding: 15px;
+      width: 100%;
+      background-color: #28a745;
+      color: white;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .payment-method-options {
+      margin-bottom: 20px;
+    }
+
+    .payment-method-options label {
+      margin-right: 20px;
+    }
+
+    #card-element {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2 style="text-align:center;">Books - ₹100.00</h2>
+
+  <form id="payment-form">
+    <div class="payment-method-options">
+      <label>
+        <input type="radio" name="payment-method" value="card" checked> Pay with Card (Visa, MasterCard, etc.)
+      </label>
+      <label>
+        <input type="radio" name="payment-method" value="link"> Pay with Link (1-click checkout)
+      </label>
+    </div>
+
+    <div id="card-element">
+      <!-- Stripe's card input form will appear here -->
+    </div>
+
+    <div id="link-container" style="display:none;">
+      <!-- Link button will appear here for 1-click checkout -->
+    </div>
+
+    <button id="submit-button" class="submit-button" type="submit">Pay ₹100.00</button>
+  </form>
+
+  <script>
+    const stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu'); // Replace with your Stripe public key
+    const elements = stripe.elements();
+
+    // Create a card element and mount it
+    const card = elements.create('card');
+    card.mount('#card-element');
+
+    // Handle form submission
+    const form = document.getElementById('payment-form');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const paymentMethod = document.querySelector('input[name="payment-method"]:checked').value;
+      let paymentMethodId;
+
+      // Handle card payment method
+      if (paymentMethod === 'card') {
+        const {token, error} = await stripe.createToken(card);
+        if (error) {
+          alert(error.message);
+          return;
+        }
+        paymentMethodId = token.id;
+      }
+
+      // Handle Link payment method
+      else if (paymentMethod === 'link') {
+        const {link, error} = await stripe.paymentRequestWithLink({
+          requestPayerName: true,
+          requestPayerEmail: true,
+        }).show();
+        if (error) {
+          alert(error.message);
+          return;
+        }
+        paymentMethodId = link.id; // Assuming Link ID for 1-click checkout
+      }
+
+      // Send the payment method ID to the backend for processing
+      try {
+        const response = await fetch('/complete-payment/', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            payment_method_id: paymentMethodId,
+            payment_method: paymentMethod,  // 'card' or 'link'
+            email: 'customer@example.com',  // Example email, replace with actual user email
+          }),
+        });
+
+        const result = await response.json();
+        if (result.status === 'success') {
+          alert('Payment successful!');
+        } else {
+          alert('Payment failed: ' + result.detail);
+        }
+      } catch (error) {
+        alert('Error occurred while processing payment: ' + error.message);
+      }
+    });
+  </script>
+
+</body>
+</html>

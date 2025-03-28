@@ -30,19 +30,7 @@ INSTALLED_APPS = [
 
     'rest_framework',  # Rest framework
 
-    # Required by allauth
-    'django.contrib.sites',
-
-
     'corsheaders',
-
-    # Django Allauth
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'drf_yasg',
-
-
 
 
     # Local apps
@@ -68,8 +56,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Required for django-allauth
-    "allauth.account.middleware.AccountMiddleware",
+
 
     "corsheaders.middleware.CorsMiddleware",  # corse headers middleware
 
@@ -143,7 +130,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # extra settings add from me --------------------------------
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
+  
 ]
 
 SITE_ID = 1
@@ -280,12 +267,12 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = "https://axiom-cyber.vercel.app/api/v1/
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 # RENDER DATABASES`----------------------------------------------------------------`
 

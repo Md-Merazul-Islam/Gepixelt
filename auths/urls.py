@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     RegisterAPIView, LoginView, 
     LogoutView, RefreshTokenView, ForgotPasswordView,  PasswordChangeView, ResetPasswordView, ProfileView, PostalCodeView,
-    ValidateOTPView, AllUsers
+    ValidateOTPView, AllUsers,UserListView,UpdateTrialStatusView
 )
 
 router = DefaultRouter()
@@ -26,6 +26,8 @@ urlpatterns = [
     path('set-new-password/', ResetPasswordView.as_view(), name='reset_password'),
     
     #check postal code 
-    path('postal-code/',PostalCodeView.as_view(),name='postal-code')
+    path('postal-code/',PostalCodeView.as_view(),name='postal-code'),
+      path('trial-users/', UserListView.as_view(), name='user-list'),
+       path('update-trial-status/<int:user_id>', UpdateTrialStatusView.as_view(), name='update-trial-status'),
 
 ]

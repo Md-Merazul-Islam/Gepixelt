@@ -171,3 +171,15 @@ class CustomUserAllSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email', 'username', 'role', 'is_active']
+
+
+class CustomUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'role', 'address', 'city', 'postal_code', 'phone_number', 'photo', 'trial_status']
+
+class UpdateTrialStatusSerializer(serializers.Serializer):
+    trial_status = serializers.BooleanField()
+
+    def validate_trial_status(self, value):
+        return value

@@ -1,5 +1,6 @@
 # This allows public access (no authentication)
 
+from .serializers import CustomUserSerializer
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.backends import ModelBackend
 from utils.IsAdminOrStaff import IsAdminOrStaff
@@ -22,7 +23,7 @@ from .models import UserProfile
 from rest_framework import viewsets, permissions
 from .serializers import (
     UserRegisterSerializer, LoginSerializer, UserSerializer,
-    ForgotPasswordSerializer, ResetPasswordSerializer, PasswordChangeSerializer, CustomUserAllSerializer
+    ForgotPasswordSerializer, ResetPasswordSerializer, PasswordChangeSerializer, CustomUserAllSerializer, UpdateTrialStatusSerializer
 )
 from rest_framework.authentication import TokenAuthentication
 
@@ -130,12 +131,12 @@ class RegisterAPIView(APIView):
                 }
             )
 
-            response.set_cookie('refresh_token', refresh_token,httponly=True, secure=True)
+            response.set_cookie('refresh_token', refresh_token,
+                                httponly=True, secure=True)
             # login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             return response
 
         return failure_response('Something went wrong.', serializer.errors)
-
 
 
 class LoginView(APIView):
@@ -160,7 +161,8 @@ class LoginView(APIView):
                 }
             })
 
-            response.set_cookie('refresh_token', refresh_token, httponly=True, secure=True)
+            response.set_cookie('refresh_token', refresh_token,
+                                httponly=True, secure=True)
             login(request, user)
             return response
 
@@ -170,7 +172,6 @@ class LoginView(APIView):
             'message': 'Invalid credentials',
             'error': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class LogoutView(APIView):
@@ -350,7 +351,7 @@ class CustomPagination(PageNumberPagination):
 class AllUsers(viewsets.ModelViewSet):
     queryset = User.objects.filter(is_active=True).order_by('id')
     serializer_class = CustomUserAllSerializer
-    permission_classes = [IsAdminOrStaff]
+    # permission_classes = [IsAdminOrStaff]
     pagination_class = CustomPagination
 
     # GET - Retrieve List of Active Users
@@ -421,3 +422,39 @@ class AllUsers(viewsets.ModelViewSet):
             return success_response("User deactivated successfully", None, status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return failure_response("Failed to deactivate user", str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UserListView(APIView):
+    def get(self, request, *args, **kwargs):
+        # Fetch all users and order them by trial_status (True first)
+        users = User.objects.all().order_by('-trial_status')
+
+        # Serialize the data
+        serializer = CustomUserSerializer(users, many=True)
+
+        # Return the serialized data
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UpdateTrialStatusView(APIView):
+    def patch(self, request, *args, **kwargs):
+        user_id = kwargs.get('user_id')  # Get user ID from the URL
+        try:
+            # Find the user by ID
+            user = User.objects.get(id=user_id)
+            
+            # Deserialize the incoming data
+            serializer = UpdateTrialStatusSerializer(data=request.data)
+            if serializer.is_valid():
+                # Update the trial status for the user
+                user.trial_status = serializer.validated_data['trial_status']
+                user.save()
+                return Response({
+                    "message": "Trial status updated successfully.",
+                    "user_id": user.id,
+                    "trial_status": user.trial_status
+                }, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)

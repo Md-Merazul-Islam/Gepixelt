@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Orders to Excel</title>
+</head>
+<body>
+
+    <h1>Export Weekly Orders to Excel</h1>
+
+    <!-- Button to trigger Excel export -->
+    <button id="export-button">Download Orders as Excel</button>
+
+    <script>
+        // Get the button element by ID
+        const exportButton = document.getElementById('export-button');
+
+        // Add event listener to the button
+        exportButton.addEventListener('click', () => {
+            // Send GET request to the backend to export the data
+            fetch('http://127.0.0.1:8000/api/v1/weekly/order/list/excel/', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.blob())  // Handle response as a binary file (Excel)
+            .then(blob => {
+                // Create a URL for the blob
+                const link = document.createElement('a');
+                const url = window.URL.createObjectURL(blob);
+                link.href = url;
+                link.download = 'weekly_orders.xlsx'; // Set the filename
+                link.click();  // Simulate click to download the file
+                window.URL.revokeObjectURL(url); // Release the URL object after download
+            })
+            .catch(error => {
+                console.error('Error downloading the Excel file:', error);
+            });
+        });
+    </script>
+
+</body>
+</html>

@@ -1,5 +1,6 @@
 # This allows public access (no authentication)
 
+from django.contrib.auth import authenticate, login
 from django.contrib.auth.backends import ModelBackend
 from utils.IsAdminOrStaff import IsAdminOrStaff
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
@@ -129,12 +130,12 @@ class RegisterAPIView(APIView):
                 }
             )
 
-            response.set_cookie('refresh_token', refresh_token,
-                                httponly=True, secure=True)
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            response.set_cookie('refresh_token', refresh_token,httponly=True, secure=True)
+            # login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             return response
 
         return failure_response('Something went wrong.', serializer.errors)
+
 
 
 class LoginView(APIView):
@@ -159,18 +160,17 @@ class LoginView(APIView):
                 }
             })
 
-            response.set_cookie('refresh_token', refresh_token,
-                                httponly=True, secure=True)
+            response.set_cookie('refresh_token', refresh_token, httponly=True, secure=True)
             login(request, user)
             return response
 
-        # Directly return a Response instead of using failure_response
         return Response({
             'success': False,
             'statusCode': status.HTTP_400_BAD_REQUEST,
             'message': 'Invalid credentials',
             'error': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class LogoutView(APIView):

@@ -18,8 +18,6 @@ class CustomUser(AbstractUser):
     postal_code = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     phone_number = models.CharField(max_length=15, null=True, blank=True, db_index=True)
     photo = models.CharField(max_length=255, blank=True, null=True)
-    balance = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    stripe_customer_id = models.CharField(max_length=100, null=True)
     trial_status = models.BooleanField(default=True)
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -27,26 +25,8 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.email
 
-    def add_balance(self, amount):
-        """Add balance to the customer account."""
-        self.balance += amount
-        self.save()
 
-    def deduct_balance(self, amount):
-        """Deduct balance from the customer account."""
-        # Check if balance is None, and if so, set it to 0.00
-        if self.balance is None:
-            self.balance = Decimal('0.00')  # Ensure balance is initialized
-        
-        # Make sure amount is a Decimal (in case it's passed as a different type)
-        amount = Decimal(amount)
 
-        # Only deduct if sufficient balance is available
-        if self.balance >= amount:
-            self.balance -= amount
-            self.save()
-            return True
-        return False
 
 
 class UserProfile(models.Model):

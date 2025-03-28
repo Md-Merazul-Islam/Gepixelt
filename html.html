@@ -1,136 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Page</title>
-  <script src="https://js.stripe.com/v3/"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #f5f5f5;
-    }
-
-    #payment-form {
-      width: 400px;
-      margin: 0 auto;
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .submit-button {
-      padding: 15px;
-      width: 100%;
-      background-color: #28a745;
-      color: white;
-      font-size: 16px;
-      border: none;
-      cursor: pointer;
-    }
-
-    .payment-method-options {
-      margin-bottom: 20px;
-    }
-
-    .payment-method-options label {
-      margin-right: 20px;
-    }
-
-    #card-element {
-      margin-bottom: 20px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment and Order Form</title>
+    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
+    <h1>Payment and Order Form</h1>
 
-  <h2 style="text-align:center;">Books - ₹100.00</h2>
+    <form id="payment-form">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required>
 
-  <form id="payment-form">
-    <div class="payment-method-options">
-      <label>
-        <input type="radio" name="payment-method" value="card" checked> Pay with Card (Visa, MasterCard, etc.)
-      </label>
-      <label>
-        <input type="radio" name="payment-method" value="link"> Pay with Link (1-click checkout)
-      </label>
-    </div>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
 
-    <div id="card-element">
-      <!-- Stripe's card input form will appear here -->
-    </div>
+        <label for="phone">Phone Number:</label>
+        <input type="text" id="phone" name="phone" required>
 
-    <div id="link-container" style="display:none;">
-      <!-- Link button will appear here for 1-click checkout -->
-    </div>
+        <label for="address">Address:</label>
+        <input type="text" id="address" name="address" required>
 
-    <button id="submit-button" class="submit-button" type="submit">Pay ₹100.00</button>
-  </form>
+        <label for="postal_code">Postal Code:</label>
+        <input type="text" id="postal_code" name="postal_code" required>
 
-  <script>
-    const stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu'); // Replace with your Stripe public key
-    const elements = stripe.elements();
+        <div id="card-element"></div> <!-- Stripe Card Element -->
 
-    // Create a card element and mount it
-    const card = elements.create('card');
-    card.mount('#card-element');
+        <button type="submit">Pay Now</button>
+    </form>
 
-    // Handle form submission
-    const form = document.getElementById('payment-form');
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
+    <script>
+        const stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu'); // Use your Stripe publishable key
+        const elements = stripe.elements();
+        const cardElement = elements.create('card');
+        cardElement.mount('#card-element');
 
-      const paymentMethod = document.querySelector('input[name="payment-method"]:checked').value;
-      let paymentMethodId;
+        const form = document.getElementById('payment-form');
 
-      // Handle card payment method
-      if (paymentMethod === 'card') {
-        const {token, error} = await stripe.createToken(card);
-        if (error) {
-          alert(error.message);
-          return;
-        }
-        paymentMethodId = token.id;
-      }
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-      // Handle Link payment method
-      else if (paymentMethod === 'link') {
-        const {link, error} = await stripe.paymentRequestWithLink({
-          requestPayerName: true,
-          requestPayerEmail: true,
-        }).show();
-        if (error) {
-          alert(error.message);
-          return;
-        }
-        paymentMethodId = link.id; // Assuming Link ID for 1-click checkout
-      }
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+            const address = document.getElementById('address').value;
+            const postalCode = document.getElementById('postal_code').value;
 
-      // Send the payment method ID to the backend for processing
-      try {
-        const response = await fetch('/complete-payment/', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            payment_method_id: paymentMethodId,
-            payment_method: paymentMethod,  // 'card' or 'link'
-            email: 'customer@example.com',  // Example email, replace with actual user email
-          }),
+            const totalAmount = 100;  // This should be dynamically calculated
+
+            // Send order data and payment info to backend to create PaymentIntent
+            const response = await fetch('http://127.0.0.1:8000/api/v1/weekly/order/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    total_amount: totalAmount,
+                    payment_info: { name, email, phone, address, postal_code },
+                    order_data: [{
+                        day_of_week: "Saturday",
+                        number_of_people: 3,
+                        order_items: [{ product: 1, quantity: 2 }, { product: 4, quantity: 2 }]
+                    }]
+                })
+            });
+
+            const data = await response.json();
+            const clientSecret = data.client_secret;
+
+            // Step 2: Complete the payment with Stripe
+            const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: { card: cardElement, billing_details: { name, email, phone, address, postal_code } }
+            });
+
+            if (error) {
+                console.error('Payment failed:', error.message);
+            } else {
+                if (paymentIntent.status === 'succeeded') {
+                    console.log('Payment successful:', paymentIntent.id);
+                    // Send the payment and order data to confirm the order
+                    await fetch('http://127.0.0.1:8000/api/v1/weekly/order/confirm-payment/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            payment_status: 'success',
+                            stripe_payment_id: paymentIntent.id,
+                            order_data: [{
+                                day_of_week: "Saturday",
+                                number_of_people: 3,
+                                order_items: [{ product: 1, quantity: 2 }, { product: 4, quantity: 2 }]
+                            },
+                            {
+                                day_of_week: "Friday",
+                                number_of_people: 2,
+                                order_items: [{ product: 1, quantity: 1 }, { product: 4, quantity: 1 }]
+                            },
+                            {
+                                day_of_week: "Friday",
+                                number_of_people: 2,
+                                order_items: [{ product: 4, quantity: 1 }, { product: 3, quantity: 1 }]
+                            },
+                          ],
+                            payment_info: { name, email, phone, address, postal_code }
+                        })
+                        .then(response => {
+                            console.log('Order confirmed:', response.ok);
+                        })
+                        
+                    });
+                    alert('Payment successful! Your order has been confirmed.');
+                    
+                }
+            }
         });
-
-        const result = await response.json();
-        if (result.status === 'success') {
-          alert('Payment successful!');
-        } else {
-          alert('Payment failed: ' + result.detail);
-        }
-      } catch (error) {
-        alert('Error occurred while processing payment: ' + error.message);
-      }
-    });
-  </script>
-
+    </script>
 </body>
 </html>

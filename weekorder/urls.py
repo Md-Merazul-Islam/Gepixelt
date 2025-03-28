@@ -1,8 +1,7 @@
-# urls.py
+from django.urls import path
+from .views import WeeklyOrderCreateView, WeeklyOrderConfirmPaymentView
 
-from django.urls import path, include
-
-from .views import WeeklyOrderCreateView
 urlpatterns = [
-     path('order/',WeeklyOrderCreateView.as_view(), name='order-status-update'),
+    path('order/', WeeklyOrderCreateView.as_view(), name='weekly-order-create'),
+    path('order/confirm-payment/', WeeklyOrderConfirmPaymentView.as_view(), name='weekly-order-confirm-payment'),
 ]

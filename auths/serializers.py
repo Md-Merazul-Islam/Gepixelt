@@ -16,9 +16,8 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'username', 'email',  'role', 'address',
-                  'phone_number', 'photo', 'photo_tmp', 'balance', 'trial_status', 'city', 'postal_code')
-        read_only_fields = ('id', 'username', 'email',
-                            'balance', 'trial_status')
+                  'phone_number', 'photo', 'photo_tmp',  'trial_status', 'city', 'postal_code')
+        read_only_fields = ('id', 'username', 'email', 'trial_status')
 
     def create(self, validated_data):
         # Handle image upload if provided
@@ -80,10 +79,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"username": "Username already exists."})
 
-        if User.objects.filter(username=data['username']).exists():
-            raise serializers.ValidationError(
-                {"phone_number": "Phone number already exists."})
-
         return data
 
     def create(self, validated_data):
@@ -94,7 +89,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
-
 class LoginSerializer(serializers.Serializer):
     identifier = serializers.CharField()
     password = serializers.CharField(write_only=True)
@@ -102,6 +96,8 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, data):
         identifier = data['identifier']
         password = data['password']
+        print(f"Identifier: {identifier}, Password: {password}")
+
 
         # Find user either by username or email
         user = None
@@ -110,27 +106,17 @@ class LoginSerializer(serializers.Serializer):
         else:
             user = User.objects.filter(username=identifier).first()
 
-        # If the user is not found, raise an error for identifier
         if not user:
             raise serializers.ValidationError(
                 {"identifier": "Invalid credentials. Please check your email or username."})
 
-        # Check if the user is active
         if not user.is_active:
             raise serializers.ValidationError(
                 {"identifier": "Your account is not active. Please verify your email."})
 
-        # Check password manually and raise an error for password
         if not user.check_password(password):
             raise serializers.ValidationError(
                 {"password": "Incorrect password. Please try again."})
-
-        # Authenticate the user with the provided password if the account is active and verified
-        user = authenticate(username=user.username, password=password)
-
-        if not user:
-            raise serializers.ValidationError(
-                "Invalid credentials. Please check your email or password.")
 
         return {"user": user}
 

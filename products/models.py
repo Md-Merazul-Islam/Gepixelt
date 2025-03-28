@@ -25,7 +25,7 @@ class Product(models.Model):
     description = models.TextField(blank=True, null=True)
     main_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    selling_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # added selling_price
+    # selling_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # added selling_price
     revenue = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     image = models.CharField(max_length=300, blank=True, null=True)
     category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True, blank=True)

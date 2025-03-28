@@ -19,6 +19,7 @@ class WeeklyOrder(models.Model):
     stripe_payment_id = models.CharField(max_length=255, blank=True, null=True)
     total_amount = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True, default=0.00)
+    order_date = models.DateField(auto_now_add=True,blank=True, null=True)
 
     def total_price(self):
         total = 0

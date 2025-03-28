@@ -1,3 +1,7 @@
+from django.contrib.auth import login, get_user_model
+from datetime import timedelta
+from django.utils import timezone
+from django.db.models import Sum, Count
 import pandas as pd
 from .serializers import WeeklyOrderListSerializer
 from .models import WeeklyOrder, OrderItem
@@ -273,8 +277,89 @@ class WeeklyOrderExportToExcelView(APIView):
             worksheet.column_dimensions['H'].width = 10  # postal code
             worksheet.column_dimensions['I'].width = 60  # Total Amount column
 
-
             # Set row height for row 1 (header row)
             worksheet.row_dimensions[1].height = 30
 
         return response
+
+
+User = get_user_model()
+
+
+class OrderStatsView(APIView):
+    def get(self, request, *args, **kwargs):
+        today = timezone.now().date()
+        # . Total Customers
+        total_users = User.objects.count()
+        total_customers = WeeklyOrder.objects.values('customer_email').distinct().count()
+
+
+        # Calculate the start and end of the current week, month, and year
+        # Monday of this week
+        start_of_week = today - timedelta(days=today.weekday())
+        start_of_month = today.replace(day=1)  # First day of this month
+        start_of_year = today.replace(month=1, day=1)  # First day of this year
+
+        # Total orders, clients, and revenue for this week
+        total_orders_week = WeeklyOrder.objects.filter(
+            order_date__gte=start_of_week)
+        total_clients_week = total_orders_week.values(
+            'customer_email').distinct().count()
+        total_revenue_week = total_orders_week.aggregate(
+            Sum('total_amount'))['total_amount__sum'] or 0
+
+        # Total orders, clients, and revenue for this month
+        total_orders_month = WeeklyOrder.objects.filter(
+            order_date__gte=start_of_month)
+        total_clients_month = total_orders_month.values(
+            'customer_email').distinct().count()
+        total_revenue_month = total_orders_month.aggregate(
+            Sum('total_amount'))['total_amount__sum'] or 0
+
+        # Total orders, clients, and revenue for this year
+        total_orders_year = WeeklyOrder.objects.filter(
+            order_date__gte=start_of_year)
+        total_clients_year = total_orders_year.values(
+            'customer_email').distinct().count()
+        total_revenue_year = total_orders_year.aggregate(
+            Sum('total_amount'))['total_amount__sum'] or 0
+
+        # Calculate revenue for the last 12 months starting from January to the current month
+        revenue_last_12_months = []
+        for i in range(12):
+            # Calculate the month from January onward (first month being January)
+            month_idx = i + 1  # 1 is January, 12 is December
+            year_idx = today.year if month_idx <= today.month else today.year - 1  # Adjust year if going past January
+            start_of_month = today.replace(year=year_idx, month=month_idx, day=1)
+
+            # For the last month (December), calculate the correct end of the month
+            if month_idx == 12:
+                end_of_month = today.replace(year=year_idx + 1, month=1, day=1) - timedelta(days=1)
+            else:
+                end_of_month = start_of_month.replace(month=start_of_month.month + 1) - timedelta(days=1)
+
+            # Calculate the total revenue for the current month
+            revenue_month = WeeklyOrder.objects.filter(order_date__gte=start_of_month, order_date__lte=end_of_month).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+
+            revenue_last_12_months.append({
+                'month': start_of_month.strftime('%B %Y'),  # e.g. "January 2025"
+                'revenue': revenue_month
+            })
+
+        # Prepare the response data
+        response_data = {
+            'total_users': total_users,
+            'total_customers': total_customers,
+            "total_orders_this_week": total_orders_week.count(),
+            "total_clients_this_week": total_clients_week,
+            "total_revenue_this_week": total_revenue_week,
+            "total_orders_this_month": total_orders_month.count(),
+            "total_clients_this_month": total_clients_month,
+            "total_revenue_this_month": total_revenue_month,
+            "total_orders_this_year": total_orders_year.count(),
+            "total_clients_this_year": total_clients_year,
+            "total_revenue_this_year": total_revenue_year,
+            "revenue_last_12_months": revenue_last_12_months
+        }
+
+        return Response(response_data)

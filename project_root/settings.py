@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'rest_framework',  # Rest framework
 
     'corsheaders',
+    'django_celery_beat',
 
 
     # Local apps

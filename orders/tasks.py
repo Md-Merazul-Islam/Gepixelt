@@ -1,27 +1,23 @@
-# myapp/tasks.py
 from celery import shared_task
-from django.core.mail import send_mail
-from django.conf import settings
-import logging
+from datetime import datetime
+import smtplib  # You can use any method to send the message, like email or SMS
 
-logger = logging.getLogger(__name__)
 
 @shared_task
-def send_email_task(recipient_email):
-    logger.info(f"Received email: {recipient_email}")  # Log the recipient email
+def send_daily_message():
+    # Your logic to send the message, e.g., email
+    subject = "Daily Message"
+    body = "This is your daily reminder!"
 
-    try:
-        send_mail(
-            'Automated Message',
-            'This is an automated message sent after 1 minute.',
-            settings.EMAIL_HOST_USER,  # Sender email
-            [recipient_email],  # Receiver email
-        )
-        logger.info(f"Email sent successfully to: {recipient_email}")
-    except Exception as e:
-        logger.error(f"Error sending email to {recipient_email}: {e}")
+    # Example of sending an email (customize this part based on your requirement)
+    to_email = "mdmerazul75@gmail.com"
+    from_email = "bluskybooking.io@gmail.com"
 
-# myapp/tasks.py
-@shared_task
-def test_task():
-    print("Test task executed successfully.")
+    with smtplib.SMTP('smtp.gmail.com', 587) as server:
+        server.starttls()
+        # Use environment variables for password
+        server.login('bluskybooking.io@gmail.com', 'rsypyovoqpsbswox')
+        message = f"Subject: {subject}\n\n{body}"
+        server.sendmail(from_email, to_email, message)
+
+    return "Message Sent Successfully"

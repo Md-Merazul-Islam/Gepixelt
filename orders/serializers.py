@@ -11,13 +11,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ['product', 'quantity', 'price']
         read_only_fields = ['price']
-    # def validate(self, data):
-    #     # Ensure price is valid for the product
-    #     product = data.get('product')
-    #     if product and not product.price:
-    #         raise serializers.ValidationError("Product price is missing.")
-    #     data['price'] = product.price  # Set the price explicitly
-    #     return data
+
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, required=False)

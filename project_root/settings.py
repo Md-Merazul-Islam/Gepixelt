@@ -183,6 +183,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:8000',
     'https://*.127.0.0.1',
     'https://gepixelitfrontend.vercel.app',
+   'https://gepixelt.vercel.app',
 
 
 ]
@@ -196,6 +197,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',
     'https://gepixelitfrontend.vercel.app',
+    'https://gepixelt.vercel.app',
 ]
 
 

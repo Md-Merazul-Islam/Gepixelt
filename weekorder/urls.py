@@ -6,7 +6,5 @@ urlpatterns = [
     path('order/list/', WeeklyOrderListView.as_view(), name='weekly-order-create'),
     path('order/list/excel/', WeeklyOrderExportToExcelView.as_view(), name='weekly-order-create'),
     path('order/dashboard/', OrderStatsView.as_view(), name='weekly-order-create'),
-    
-    
     path('order/confirm-payment/', WeeklyOrderConfirmPaymentView.as_view(), name='weekly-order-confirm-payment'),
 ]

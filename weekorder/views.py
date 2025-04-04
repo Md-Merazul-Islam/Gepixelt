@@ -45,6 +45,9 @@ class WeeklyOrderCreateView(APIView):
 
             # Respond with the client_secret to complete the payment
             return Response({
+                'success': True,
+                'status': status.HTTP_200_OK,
+                'payment_intent_id': payment_intent.id,
                 'client_secret': client_secret,
                 'message': 'Payment intent created successfully. Please complete the payment.'
             }, status=status.HTTP_200_OK)

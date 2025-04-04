@@ -54,25 +54,10 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    
                 },
                 body: JSON.stringify({
                     total_amount: totalAmount,
-                    payment_info: { name, email, phone, address, postal_code },
-                    order_data: [{
-                        day_of_week: "Saturday",
-                        number_of_people: 3,
-                        order_items: [{ product: 1, quantity: 2 }, { product: 4, quantity: 2 }]
-                    },{
-                        day_of_week: "Sunday",
-                        number_of_people: 1,
-                        order_items: [{ product: 5, quantity: 4 }, { product: 8, quantity: 2 }]
-                    },
-                    ,{
-                        day_of_week: "Monday",
-                        number_of_people: 5,
-                        order_items: [{ product: 6, quantity: 2 }, { product: 9, quantity: 1 }]
-                    },
-                  ]
                 })
             });
 
@@ -90,7 +75,7 @@
                 if (paymentIntent.status === 'succeeded') {
                     console.log('Payment successful:', paymentIntent.id);
                     // Send the payment and order data to confirm the order
-                    await fetch('http://127.0.0.1:8000/api/v1/weekly/order/confirm-payment/', {
+                    await fetch('http://127.0.0.1:8000/api/v1/weekly/order/confirm-paymentd/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

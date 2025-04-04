@@ -330,3 +330,7 @@ CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'  # Redis URL
 CELERY_ACCEPT_CONTENT = ['json']  # Accept only JSON content
 CELERY_TASK_SERIALIZER = 'json'  # Task data serialization method
 CELERY_TIMEZONE = 'UTC'  # Timezone
+
+PAYPAL_MODE = 'sandbox'  
+PAYPAL_CLIENT_ID = os.getenv('PAYPAL_TEST_CLIENT_ID')
+PAYPAL_CLIENT_SECRET = os.getenv('PAYPAL_TEST_SECRET_KEY')

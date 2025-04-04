@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment and Order Form</title>
+    <script src="https://www.paypal.com/sdk/js?client-id=Acueo6mOVmrUQWX6VkO2rJkAWYmqUOwe4ZkFI39FYzdHdekefmqL8djqajopvkm6TghOBb_DPgBD6qKw&currency=USD"></script> <!-- Replace with your PayPal client ID -->
+</head>
+<body>
+    <h1>Payment and Order Form</h1>
+
+    <form id="payment-form">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
+
+        <label for="phone">Phone Number:</label>
+        <input type="text" id="phone" name="phone" required>
+
+        <label for="address">Address:</label>
+        <input type="text" id="address" name="address" required>
+
+        <label for="postal_code">Postal Code:</label>
+        <input type="text" id="postal_code" name="postal_code" required>
+
+        <div id="paypal-button-container"></div> <!-- PayPal Button will be inserted here -->
+    </form>
+
+    <script>
+        // Example total amount (you can dynamically calculate this from your order details)
+        const totalAmount = 100.00;
+
+        // PayPal button setup
+        paypal.Buttons({
+            createOrder: function(data, actions) {
+                // Create PayPal payment on the backend
+                return fetch('http://127.0.0.1:8000/api/v1/weekly/order/paypal/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ5NzkwOTI3LCJpYXQiOjE3NDM3NDI5MjcsImp0aSI6ImNkMzZkMTQwZWUxYzRiODU5MmE0OTA4MWUzNjg1YjU0IiwidXNlcl9pZCI6OCwidXNlcm5hbWUiOiJtZWRkc2ZzYXoxIiwiZW1haWwiOiJtZHNlcnNhc2RmejFAZ21haWwuY29tIiwicm9sZSI6InVzZXIifQ.E6i84qI4o-MXtb7TH10ggMp_bLFt8ESzpeKIZRJVz2k', // Include the access token for authentication
+                    },
+                    body: JSON.stringify({
+                        total_amount: totalAmount,
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Ensure the PayPal redirect URL is returned from the backend
+                    if (data.paypal_redirect_url) {
+                        alert("PayPal redirect URL", data.paypal_redirect_url)
+                        return data.paypal_redirect_url;
+                    }
+                    throw new Error('Failed to create PayPal payment');
+                })
+                .catch(error => {
+                    console.error("Error creating PayPal payment:", error);
+                });
+            },
+
+            onApprove: function(data, actions) {
+                // Handle successful PayPal payment
+                const paymentId = data.paymentID;
+                const payerId = data.payerID;
+
+                // Send payment details to the backend to confirm the payment
+                return fetch('http://127.0.0.1:8000/api/v1/weekly/order/paypal/confirm/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        payment_status: 'success',
+                        paypal_payment_id: paymentId,
+                        paypal_payer_id: payerId,
+                        order_data: [{
+                            day_of_week: "Saturday",
+                            number_of_people: 3,
+                            order_items: [{ product: 1, quantity: 2 }, { product: 4, quantity: 2 }]
+                        }],
+                        payment_info: {
+                            name: document.getElementById('name').value,
+                            email: document.getElementById('email').value,
+                            phone: document.getElementById('phone').value,
+                            address: document.getElementById('address').value,
+                            postal_code: document.getElementById('postal_code').value
+                        },
+                        total_amount: totalAmount,
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('Payment successful! Your order has been confirmed.');
+                    } else {
+                        alert('Payment confirmation failed: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error confirming payment:', error);
+                    alert('Payment confirmation failed.');
+                });
+            },
+
+            onCancel: function(data) {
+                // Handle payment cancellation
+                alert('Payment was cancelled.');
+            },
+
+            onError: function(err) {
+                // Handle payment errors
+                console.error('PayPal payment error:', err);
+                alert('An error occurred during the payment process.');
+            }
+        }).render('#paypal-button-container');
+    </script>
+</body>
+</html>

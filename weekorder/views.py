@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.contrib.auth import login, get_user_model
 from datetime import timedelta
 from django.utils import timezone
@@ -16,7 +17,7 @@ from rest_framework.views import APIView
 from .models import WeeklyOrder, Product, OrderItem
 from django.conf import settings
 import stripe
-
+import paypalrestsdk
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
 
@@ -50,6 +51,8 @@ class WeeklyOrderCreateView(APIView):
 
         except stripe.error.StripeError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 
 class WeeklyOrderConfirmPaymentView(APIView):
@@ -111,6 +114,7 @@ class WeeklyOrderConfirmPaymentView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class WeeklyOrderListView(ListAPIView):
@@ -291,8 +295,8 @@ class OrderStatsView(APIView):
         today = timezone.now().date()
         # . Total Customers
         total_users = User.objects.count()
-        total_customers = WeeklyOrder.objects.values('customer_email').distinct().count()
-
+        total_customers = WeeklyOrder.objects.values(
+            'customer_email').distinct().count()
 
         # Calculate the start and end of the current week, month, and year
         # Monday of this week
@@ -329,20 +333,26 @@ class OrderStatsView(APIView):
         for i in range(12):
             # Calculate the month from January onward (first month being January)
             month_idx = i + 1  # 1 is January, 12 is December
-            year_idx = today.year if month_idx <= today.month else today.year - 1  # Adjust year if going past January
-            start_of_month = today.replace(year=year_idx, month=month_idx, day=1)
+            year_idx = today.year if month_idx <= today.month else today.year - \
+                1  # Adjust year if going past January
+            start_of_month = today.replace(
+                year=year_idx, month=month_idx, day=1)
 
             # For the last month (December), calculate the correct end of the month
             if month_idx == 12:
-                end_of_month = today.replace(year=year_idx + 1, month=1, day=1) - timedelta(days=1)
+                end_of_month = today.replace(
+                    year=year_idx + 1, month=1, day=1) - timedelta(days=1)
             else:
-                end_of_month = start_of_month.replace(month=start_of_month.month + 1) - timedelta(days=1)
+                end_of_month = start_of_month.replace(
+                    month=start_of_month.month + 1) - timedelta(days=1)
 
             # Calculate the total revenue for the current month
-            revenue_month = WeeklyOrder.objects.filter(order_date__gte=start_of_month, order_date__lte=end_of_month).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+            revenue_month = WeeklyOrder.objects.filter(order_date__gte=start_of_month, order_date__lte=end_of_month).aggregate(
+                Sum('total_amount'))['total_amount__sum'] or 0
 
             revenue_last_12_months.append({
-                'month': start_of_month.strftime('%B %Y'),  # e.g. "January 2025"
+                # e.g. "January 2025"
+                'month': start_of_month.strftime('%B %Y'),
                 'revenue': revenue_month
             })
 
@@ -363,3 +373,135 @@ class OrderStatsView(APIView):
         }
 
         return Response(response_data)
+
+
+# -----------
+
+# Configure PayPal SDK with your credentials
+# paypalrestsdk.configure({
+#     "mode": "sandbox",  
+#     "client_id": "Acueo6mOVmrUQWX6VkO2rJkAWYmqUOwe4ZkFI39FYzdHdekefmqL8djqajopvkm6TghOBb_DPgBD6qKw",
+#     "client_secret": "EFMF_su_SG7upU7b6Ni2a__ZuWW5jVCe2bb15RrCohpcSxvef9ssQ682HCTHTpHt_GreGLbKaZ0Pb0gx"
+# })
+
+paypalrestsdk.configure({
+    "mode": settings.PAYPAL_MODE,
+    "client_id": settings.PAYPAL_CLIENT_ID,
+    "client_secret": settings.PAYPAL_CLIENT_SECRET
+})
+
+
+class WeeklyOrderCreateByPayPal(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            total_amount = request.data.get('total_amount')
+            if total_amount is None or total_amount <= 0:
+                return JsonResponse({"error": "Invalid total amount."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create PayPal payment
+            payment = paypalrestsdk.Payment({
+                "intent": "sale",
+                "payer": {
+                    "payment_method": "paypal"
+                },
+                "transactions": [{
+                    "amount": {
+                        "total": str(total_amount),
+                        "currency": "USD"
+                    },
+                    "description": "Weekly Order Payment"
+                }],
+                "redirect_urls": {
+                    "return_url": "http://127.0.0.1:8000/api/v1/weekly/order/success/",
+                    "cancel_url": "http://127.0.0.1:8000/api/v1/weekly/order/cancel/"
+                }
+            })
+
+            if payment.create():
+                # Get PayPal approval URL
+                paypal_redirect_url = next(
+                    link.href for link in payment.links if link.rel == "approval_url")
+
+                return JsonResponse({
+                'status': 'success',
+                'message': 'Payment created successfully.',
+                'payment_id': payment.id,
+                'paypal_redirect_url': paypal_redirect_url,  
+                'message': 'Payment created. Please complete the payment via PayPal.'
+            }, status=status.HTTP_200_OK)
+            else:
+                return JsonResponse({"error": "PayPal payment creation failed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class WeeklyOrderConfirmByPayPalPaymentView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            # Extract PayPal payment details from request data
+            payment_status = request.data.get('payment_status')
+            order_data = request.data.get('order_data')
+            payment_info = request.data.get('payment_info')
+            total_amount = request.data.get('total_amount')
+
+            # Check if the payment status is successful
+            if payment_status != 'success':
+                return JsonResponse({"error": "Payment failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get the PayPal payment details
+            payment_id = request.data.get('paypal_payment_id')
+            payer_id = request.data.get('paypal_payer_id')
+
+            if not payment_id or not payer_id:
+                return JsonResponse({"error": "Missing payment or payer ID"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Find the PayPal payment using the payment_id
+            payment = paypalrestsdk.Payment.find(payment_id)
+
+            # Execute the PayPal payment
+            if payment.execute({"payer_id": payer_id}):
+                # Payment successfully executed, process the order
+                created_orders = []
+                for weekly_order_data in order_data:
+                    weekly_order = WeeklyOrder.objects.create(
+                        day_of_week=weekly_order_data['day_of_week'],
+                        number_of_people=weekly_order_data['number_of_people'],
+                        customer_name=payment_info['name'],
+                        customer_email=payment_info['email'],
+                        customer_phone=payment_info['phone'],
+                        customer_address=payment_info['address'],
+                        customer_postal_code=payment_info['postal_code'],
+                        total_amount=total_amount
+                    )
+
+                    order_items = []
+                    for item in weekly_order_data['order_items']:
+                        product = Product.objects.get(id=item['product'])
+                        order_item = OrderItem.objects.create(
+                            weekly_order=weekly_order,
+                            product=product,
+                            quantity=item['quantity']
+                        )
+                        order_items.append({
+                            'product': product.name,
+                            'quantity': order_item.quantity,
+                        })
+
+                    created_orders.append({
+                        'day_of_week': weekly_order.day_of_week,
+                        'number_of_people': weekly_order.number_of_people,
+                        'order_items': order_items,
+                        'total_order_price': total_amount
+                    })
+
+                return JsonResponse({
+                    "message": "Orders created successfully",
+                    "orders": created_orders,
+                    "total_week_price": total_amount
+                }, status=status.HTTP_201_CREATED)
+
+            else:
+                return JsonResponse({"error": "PayPal payment execution failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

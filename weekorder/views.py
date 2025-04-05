@@ -3,6 +3,8 @@ from django.http import JsonResponse
 from django.contrib.auth import get_user_model
 from datetime import timedelta
 from django.utils import timezone
+from django.utils.timezone import now
+
 from django.db.models import Sum
 import pandas as pd
 from .serializers import WeeklyOrderListSerializer
@@ -37,7 +39,7 @@ class WeeklyOrderCreateView(APIView):
                 'success': True,
                 'status': status.HTTP_200_OK,
                 'client_secret': client_secret,
-                
+
                 'message': 'Payment intent created successfully. Please complete the payment.'
             }, status=status.HTTP_200_OK)
 
@@ -56,8 +58,8 @@ class WeeklyOrderConfirmPaymentView(APIView):
             order_data = request.data.get('order_data')
             payment_info = request.data.get('payment_info')
             total_amount = request.data.get('total_amount')
-            
-             # Log the input data
+
+            # Log the input data
             logger.info("Received payment status: %s", payment_status)
             logger.info("Received order data: %s", order_data)
             logger.info("Received payment info: %s", payment_info)
@@ -128,50 +130,50 @@ class WeeklyOrderListView(ListAPIView):
         return queryset
 
 
-class WeeklyOrderExportToExcelView(APIView):
-    def get(self, request, *args, **kwargs):
-        orders = WeeklyOrder.objects.prefetch_related('order_items_week')
-        data = []
+# class WeeklyOrderExportToExcelView(APIView):
+#     def get(self, request, *args, **kwargs):
+#         orders = WeeklyOrder.objects.prefetch_related('order_items_week')
+#         data = []
 
-        for order in orders:
-            order_items = []
-            for item in order.order_items_week.all():
-                product_str = f"{item.product.name} x {item.quantity}"
-                order_items.append(product_str)
-            order_items_str = ', '.join(order_items)
-            order_items_with_people = f"({order_items_str}) * {order.number_of_people}"
+#         for order in orders:
+#             order_items = []
+#             for item in order.order_items_week.all():
+#                 product_str = f"{item.product.name} x {item.quantity}"
+#                 order_items.append(product_str)
+#             order_items_str = ', '.join(order_items)
+#             order_items_with_people = f"({order_items_str}) * {order.number_of_people}"
 
-            data.append({
-                "Order ID": order.id,
-                "Day of Week": order.day_of_week,
-                "Number of People": order.number_of_people,
-                "Customer Name": order.customer_name,
-                "Customer Email": order.customer_email,
-                "Customer Phone": order.customer_phone,
-                "Customer Address": order.customer_address,
-                "Customer Postal Code": order.customer_postal_code,
-                "Order Items": order_items_with_people,
-            })
+#             data.append({
+#                 "Order ID": order.id,
+#                 "Day of Week": order.day_of_week,
+#                 "Number of People": order.number_of_people,
+#                 "Customer Name": order.customer_name,
+#                 "Customer Email": order.customer_email,
+#                 "Customer Phone": order.customer_phone,
+#                 "Customer Address": order.customer_address,
+#                 "Customer Postal Code": order.customer_postal_code,
+#                 "Order Items": order_items_with_people,
+#             })
 
-        df = pd.DataFrame(data)
-        response = HttpResponse(content_type='application/vnd.ms-excel')
-        response['Content-Disposition'] = 'attachment; filename="weekly_orders.xlsx"'
+#         df = pd.DataFrame(data)
+#         response = HttpResponse(content_type='application/vnd.ms-excel')
+#         response['Content-Disposition'] = 'attachment; filename="weekly_orders.xlsx"'
 
-        with pd.ExcelWriter(response, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False)
-            workbook = writer.book
-            worksheet = workbook.active
-            worksheet.column_dimensions['A'].width = 10
-            worksheet.column_dimensions['B'].width = 20
-            worksheet.column_dimensions['C'].width = 5
-            worksheet.column_dimensions['D'].width = 20
-            worksheet.column_dimensions['E'].width = 40
-            worksheet.column_dimensions['F'].width = 15
-            worksheet.column_dimensions['G'].width = 50
-            worksheet.column_dimensions['H'].width = 10
-            worksheet.column_dimensions['I'].width = 60
-            worksheet.row_dimensions[1].height = 30
-        return response
+#         with pd.ExcelWriter(response, engine='openpyxl') as writer:
+#             df.to_excel(writer, index=False)
+#             workbook = writer.book
+#             worksheet = workbook.active
+#             worksheet.column_dimensions['A'].width = 10
+#             worksheet.column_dimensions['B'].width = 20
+#             worksheet.column_dimensions['C'].width = 5
+#             worksheet.column_dimensions['D'].width = 20
+#             worksheet.column_dimensions['E'].width = 40
+#             worksheet.column_dimensions['F'].width = 15
+#             worksheet.column_dimensions['G'].width = 50
+#             worksheet.column_dimensions['H'].width = 10
+#             worksheet.column_dimensions['I'].width = 60
+#             worksheet.row_dimensions[1].height = 30
+#         return response
 
 
 User = get_user_model()
@@ -273,8 +275,8 @@ class WeeklyOrderCreateByPayPal(APIView):
                     "description": "Weekly Order Payment"
                 }],
                 "redirect_urls": {
-                    "return_url": "https://gepixelitfrontend.vercel.app/payment/paymentSuccess",
-                    "cancel_url": "hhttps://gepixelitfrontend.vercel.app/payment/paymentFail"
+                    "return_url": "http://localhost:3000/payment/paymentSuccess",
+                    "cancel_url": "http://localhost:3000/payment/paymentFail"
                 }
             })
 
@@ -294,6 +296,7 @@ class WeeklyOrderCreateByPayPal(APIView):
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class WeeklyOrderConfirmByPayPalPaymentView(APIView):
     def post(self, request, *args, **kwargs):
@@ -361,3 +364,84 @@ class WeeklyOrderConfirmByPayPalPaymentView(APIView):
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class WeeklyOrderExportToExcelView(APIView):
+    def get(self, request, *args, **kwargs):
+        today = now().date() 
+        day_name = request.GET.get('day_name', None) 
+
+        if day_name:
+                orders = WeeklyOrder.objects.filter(day_of_week=day_name).prefetch_related('order_items_week')
+        else:
+            
+            orders = WeeklyOrder.objects.prefetch_related('order_items_week')
+
+        
+        if not orders:
+            print(f"No orders found for {day_name}.")
+
+        
+        if not orders:
+            orders = [{
+                "Order ID": "",
+                "Receive Day": "",
+                "Number of People": "",
+                "Customer Name": "",
+                "Customer Email": "",
+                "Customer Phone": "",
+                "Customer Address": "",
+                "Customer Postal Code": "",
+                "Order Items": "",
+                "Created At": "",
+            }]
+        
+        data = []
+        
+        for order in orders:
+            if isinstance(order, dict):  
+                data.append(order)
+            else:  
+                order_items = []
+                for item in order.order_items_week.all():
+                    product_str = f"{item.product.name} x {item.quantity}"
+                    order_items.append(product_str)
+                order_items_str = ', '.join(order_items)
+                order_items_with_people = f"({order_items_str}) * {order.number_of_people}"
+
+                data.append({
+                    "Order ID": order.id,
+                    "Receive Day": order.day_of_week,
+                    "Number of People": order.number_of_people,
+                    "Customer Name": order.customer_name,
+                    "Customer Email": order.customer_email,
+                    "Customer Phone": order.customer_phone,
+                    "Customer Address": order.customer_address,
+                    "Customer Postal Code": order.customer_postal_code,
+                    "Order Items": order_items_with_people,
+                    "Created At": order.order_date.strftime('%Y-%m-%d %H:%M:%S'),
+                })
+
+        
+        df = pd.DataFrame(data)
+        response = HttpResponse(content_type='application/vnd.ms-excel')
+        response['Content-Disposition'] = 'attachment; filename="weekly_orders.xlsx"'
+
+        with pd.ExcelWriter(response, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
+            workbook = writer.book
+            worksheet = workbook.active
+
+            worksheet.column_dimensions['A'].width = 10
+            worksheet.column_dimensions['B'].width = 20
+            worksheet.column_dimensions['C'].width = 5
+            worksheet.column_dimensions['D'].width = 20
+            worksheet.column_dimensions['E'].width = 40
+            worksheet.column_dimensions['F'].width = 15
+            worksheet.column_dimensions['G'].width = 50
+            worksheet.column_dimensions['H'].width = 10
+            worksheet.column_dimensions['I'].width = 60
+            worksheet.column_dimensions['I'].width = 60
+
+            worksheet.row_dimensions[1].height = 30
+
+        return response

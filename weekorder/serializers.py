@@ -43,5 +43,5 @@ class WeeklyOrderListSerializer(serializers.ModelSerializer):
         model = WeeklyOrder
         fields = ['id','day_of_week', 'number_of_people', 'order_items', 
                   'customer_name', 'customer_email', 'customer_phone',
-                  'customer_address', 'customer_postal_code', 'stripe_payment_id', 'total_amount']
+                  'customer_address', 'customer_postal_code', 'stripe_payment_id', 'total_amount','order_date']
 

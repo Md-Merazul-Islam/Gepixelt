@@ -8,12 +8,12 @@ now = timezone.now()
 class Role(models.TextChoices):
     ADMIN = 'admin', 'Admin'
     USER = 'user', 'User'
-    # BREAKER=
+    DELIVERY_MAN = 'delivery_man', 'Delivery Man'
 
 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True, db_index=True)
-    role = models.CharField(max_length=10, choices=Role.choices,
+    role = models.CharField(max_length=100, choices=Role.choices,
                             default=Role.USER, null=True, blank=True, db_index=True)
     address = models.CharField(
         max_length=255, null=True, blank=True, db_index=True)

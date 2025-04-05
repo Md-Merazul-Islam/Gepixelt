@@ -273,8 +273,8 @@ class WeeklyOrderCreateByPayPal(APIView):
                     "description": "Weekly Order Payment"
                 }],
                 "redirect_urls": {
-                    "return_url": "http://127.0.0.1:8000/api/v1/weekly/order/success/",
-                    "cancel_url": "http://127.0.0.1:8000/api/v1/weekly/order/cancel/"
+                    "return_url": "https://gepixelitfrontend.vercel.app/payment/paymentSuccess",
+                    "cancel_url": "hhttps://gepixelitfrontend.vercel.app/payment/paymentFail"
                 }
             })
 
@@ -295,64 +295,69 @@ class WeeklyOrderCreateByPayPal(APIView):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class WeeklyOrderConfirmByPayPalPaymentView(APIView):
     def post(self, request, *args, **kwargs):
         try:
-            payment_status = request.data.get('payment_status')
-            order_data = request.data.get('order_data')
-            payment_info = request.data.get('payment_info')
-            total_amount = request.data.get('total_amount')
+            # Extract the payment details from the request
+            payment_id = request.data.get('paymentId')
+            payer_id = request.data.get('PayerID')
+            token = request.data.get('token')
 
-            if payment_status != 'success':
-                return JsonResponse({"error": "Payment failed"}, status=status.HTTP_400_BAD_REQUEST)
-            payment_id = request.data.get('paypal_payment_id')
-            payer_id = request.data.get('paypal_payer_id')
-            if not payment_id or not payer_id:
-                return JsonResponse({"error": "Missing payment or payer ID"}, status=status.HTTP_400_BAD_REQUEST)
+            if not payment_id or not payer_id or not token:
+                return JsonResponse({"error": "Missing payment details"}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Find the payment using the PayPal API
             payment = paypalrestsdk.Payment.find(payment_id)
-            if payment.execute({"payer_id": payer_id}):
-                created_orders = []
-                for weekly_order_data in order_data:
-                    weekly_order = WeeklyOrder.objects.create(
-                        day_of_week=weekly_order_data['day_of_week'],
-                        number_of_people=weekly_order_data['number_of_people'],
-                        customer_name=payment_info['name'],
-                        customer_email=payment_info['email'],
-                        customer_phone=payment_info['phone'],
-                        customer_address=payment_info['address'],
-                        customer_postal_code=payment_info['postal_code'],
-                        total_amount=total_amount
-                    )
-                    order_items = []
-                    for item in weekly_order_data['order_items']:
-                        product = Product.objects.get(id=item['product'])
-                        order_item = OrderItem.objects.create(
-                            weekly_order=weekly_order,
-                            product=product,
-                            quantity=item['quantity']
+
+            # Ensure the token matches (verify the session)
+            if payment.token == token:
+                # Execute the payment using the payer_id to confirm the payment
+                if payment.execute({"payer_id": payer_id}):
+                    # If payment is successful, process the order and create it in the database
+                    order_data = request.data.get('order_data')
+                    payment_info = request.data.get('payment_info')
+                    total_amount = request.data.get('total_amount')
+
+                    created_orders = []
+                    for weekly_order_data in order_data:
+                        weekly_order = WeeklyOrder.objects.create(
+                            day_of_week=weekly_order_data['day_of_week'],
+                            number_of_people=weekly_order_data['number_of_people'],
+                            customer_name=payment_info['name'],
+                            customer_email=payment_info['email'],
+                            customer_phone=payment_info['phone'],
+                            customer_address=payment_info['address'],
+                            customer_postal_code=payment_info['postal_code'],
+                            total_amount=total_amount
                         )
-                        order_items.append({
-                            'product': product.name,
-                            'quantity': order_item.quantity,
+                        order_items = []
+                        for item in weekly_order_data['order_items']:
+                            product = Product.objects.get(id=item['product'])
+                            order_item = OrderItem.objects.create(
+                                weekly_order=weekly_order,
+                                product=product,
+                                quantity=item['quantity']
+                            )
+                            order_items.append({
+                                'product': product.name,
+                                'quantity': order_item.quantity,
+                            })
+                        created_orders.append({
+                            'day_of_week': weekly_order.day_of_week,
+                            'number_of_people': weekly_order.number_of_people,
+                            'order_items': order_items,
+                            'total_order_price': total_amount
                         })
 
-                    created_orders.append({
-                        'day_of_week': weekly_order.day_of_week,
-                        'number_of_people': weekly_order.number_of_people,
-                        'order_items': order_items,
-                        'total_order_price': total_amount
-                    })
-
-                return JsonResponse({
-                    "message": "Orders created successfully",
-                    "orders": created_orders,
-                    "total_week_price": total_amount
-                }, status=status.HTTP_201_CREATED)
-
+                    return JsonResponse({
+                        "message": "Orders created successfully",
+                        "orders": created_orders,
+                        "total_week_price": total_amount
+                    }, status=status.HTTP_201_CREATED)
+                else:
+                    return JsonResponse({"error": "Payment execution failed"}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return JsonResponse({"error": "PayPal payment execution failed"}, status=status.HTTP_400_BAD_REQUEST)
+                return JsonResponse({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

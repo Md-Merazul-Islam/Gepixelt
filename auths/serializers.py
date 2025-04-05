@@ -96,8 +96,6 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, data):
         identifier = data['identifier']
         password = data['password']
-        print(f"Identifier: {identifier}, Password: {password}")
-
 
         # Find user either by username or email
         user = None

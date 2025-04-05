@@ -3,118 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment and Order Form</title>
-    <script src="https://www.paypal.com/sdk/js?client-id=Acueo6mOVmrUQWX6VkO2rJkAWYmqUOwe4ZkFI39FYzdHdekefmqL8djqajopvkm6TghOBb_DPgBD6qKw&currency=USD"></script> <!-- Replace with your PayPal client ID -->
+    <title>PayPal Integration</title>
+    <script src="https://www.paypal.com/sdk/js?client-id=Acueo6mOVmrUQWX6VkO2rJkAWYmqUOwe4ZkFI39FYzdHdekefmqL8djqajopvkm6TghOBb_DPgBD6qKw&currency=USD"></script>
+    <!-- Replace YOUR_PAYPAL_CLIENT_ID with your actual PayPal client ID -->
 </head>
 <body>
-    <h1>Payment and Order Form</h1>
 
-    <form id="payment-form">
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" required>
-
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" required>
-
-        <label for="phone">Phone Number:</label>
-        <input type="text" id="phone" name="phone" required>
-
-        <label for="address">Address:</label>
-        <input type="text" id="address" name="address" required>
-
-        <label for="postal_code">Postal Code:</label>
-        <input type="text" id="postal_code" name="postal_code" required>
-
-        <div id="paypal-button-container"></div> <!-- PayPal Button will be inserted here -->
-    </form>
+    <!-- Container for PayPal button -->
+    <div id="paypal-button-container"></div>
 
     <script>
-        // Example total amount (you can dynamically calculate this from your order details)
-        const totalAmount = 100.00;
-
-        // PayPal button setup
-        paypal.Buttons({
-            createOrder: function(data, actions) {
-                // Create PayPal payment on the backend
-                return fetch('http://127.0.0.1:8000/api/v1/weekly/order/paypal/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ5NzkwOTI3LCJpYXQiOjE3NDM3NDI5MjcsImp0aSI6ImNkMzZkMTQwZWUxYzRiODU5MmE0OTA4MWUzNjg1YjU0IiwidXNlcl9pZCI6OCwidXNlcm5hbWUiOiJtZWRkc2ZzYXoxIiwiZW1haWwiOiJtZHNlcnNhc2RmejFAZ21haWwuY29tIiwicm9sZSI6InVzZXIifQ.E6i84qI4o-MXtb7TH10ggMp_bLFt8ESzpeKIZRJVz2k', // Include the access token for authentication
-                    },
-                    body: JSON.stringify({
-                        total_amount: totalAmount,
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Ensure the PayPal redirect URL is returned from the backend
-                    if (data.paypal_redirect_url) {
-                        alert("PayPal redirect URL", data.paypal_redirect_url)
-                        return data.paypal_redirect_url;
-                    }
-                    throw new Error('Failed to create PayPal payment');
-                })
-                .catch(error => {
-                    console.error("Error creating PayPal payment:", error);
-                });
+      paypal.Buttons({
+        // 1. Create Order (initiating payment)
+        createOrder: function(data, actions) {
+          // Send a request to your backend to create the PayPal payment
+          return fetch('http://127.0.0.1:8000/api/v1/weekly/order/paypal/', {  // Call your backend for payment creation
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
+            body: JSON.stringify({
+              total_amount: 100  // Replace with the total amount of the order (dynamically)
+            })
+          })
+          .then(response => response.json())
+          .then(data => {
+            // Pass the payment ID from the backend to PayPal
+            window.location.href = data.paypal_redirect_url;  
+          });
+        },
 
-            onApprove: function(data, actions) {
-                // Handle successful PayPal payment
-                const paymentId = data.paymentID;
-                const payerId = data.payerID;
+        // 2. On Payment Approval (when user approves the payment)
+        onApprove: function(data, actions) {
+          // Execute payment once the user approves it
+          return actions.order.capture().then(function(details) {
+            // Send the payment details to your backend to confirm payment
+            return fetch('http://127.0.0.1:8000/api/v1/weekly/order/paypal/confirm/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                paymentId: data.paymentID,  // Payment ID from PayPal
+                PayerID: data.payerID,      // Payer ID from PayPal
+                token: data.token,          // Token from PayPal (for verification)
+                order_data: [/* Pass your order details here (e.g., items, quantities) */],
+                payment_info: {
+                  name: details.payer.name.given_name,
+                  email: details.payer.email_address,
+                  phone: details.payer.phone,
+                  address: details.payer.address,
+                  postal_code: details.payer.address.postal_code,
+                },
+                total_amount: details.purchase_units[0].amount.value,  // Total amount paid
+              })
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.message === 'Orders created successfully') {
+                alert('Payment and order creation successful!');
+              } else {
+                alert('Error confirming payment');
+              }
+            })
+            .catch(error => {
+              console.error('Error:', error);
+              alert('Payment confirmation failed');
+            });
+          });
+        },
 
-                // Send payment details to the backend to confirm the payment
-                return fetch('http://127.0.0.1:8000/api/v1/weekly/order/paypal/confirm/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        payment_status: 'success',
-                        paypal_payment_id: paymentId,
-                        paypal_payer_id: payerId,
-                        order_data: [{
-                            day_of_week: "Saturday",
-                            number_of_people: 3,
-                            order_items: [{ product: 1, quantity: 2 }, { product: 4, quantity: 2 }]
-                        }],
-                        payment_info: {
-                            name: document.getElementById('name').value,
-                            email: document.getElementById('email').value,
-                            phone: document.getElementById('phone').value,
-                            address: document.getElementById('address').value,
-                            postal_code: document.getElementById('postal_code').value
-                        },
-                        total_amount: totalAmount,
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        alert('Payment successful! Your order has been confirmed.');
-                    } else {
-                        alert('Payment confirmation failed: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error confirming payment:', error);
-                    alert('Payment confirmation failed.');
-                });
-            },
-
-            onCancel: function(data) {
-                // Handle payment cancellation
-                alert('Payment was cancelled.');
-            },
-
-            onError: function(err) {
-                // Handle payment errors
-                console.error('PayPal payment error:', err);
-                alert('An error occurred during the payment process.');
-            }
-        }).render('#paypal-button-container');
+        // 3. On Payment Cancellation (if user cancels the payment)
+        onCancel: function(data) {
+          // Handle the cancellation of the payment
+          alert('Payment was cancelled');
+        }
+      }).render('#paypal-button-container'); // Render the PayPal button inside the specified container
     </script>
+
 </body>
 </html>

@@ -3,102 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment and Order Form</title>
-    <script src="https://js.stripe.com/v3/"></script>
+    <title>PayPal Payment Integration</title>
 </head>
 <body>
-    <h1>Payment and Order Form</h1>
+    <h1>PayPal Payment Integration</h1>
+    <div id="paypal-button-container"></div>
 
-    <form id="payment-form">
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" required>
-
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" required>
-
-        <label for="phone">Phone Number:</label>
-        <input type="text" id="phone" name="phone" required>
-
-        <label for="address">Address:</label>
-        <input type="text" id="address" name="address" required>
-
-        <label for="postal_code">Postal Code:</label>
-        <input type="text" id="postal_code" name="postal_code" required>
-
-        <div id="card-element"></div> <!-- Stripe Card Element -->
-
-        <button type="submit">Pay Now</button>
-    </form>
+    <script src="https://www.paypal.com/sdk/js?client-id=Acueo6mOVmrUQWX6VkO2rJkAWYmqUOwe4ZkFI39FYzdHdekefmqL8djqajopvkm6TghOBb_DPgBD6qKw&currency=USD"></script>
 
     <script>
-        const stripe = Stripe('pk_test_51QZEaRCswZXaKM4ARthLO0sY7xHwqdxAV8tHRpXouzGhr8sFSwbM9ZfQUzKWljMSwdwXT3iltkoU1si2Ys114kp000bIO5hmxu'); // Use your Stripe publishable key
-        const elements = stripe.elements();
-        const cardElement = elements.create('card');
-        cardElement.mount('#card-element');
+        // Define the total amount globally so it's accessible
+        const totalAmount = 800000; // Dynamic value based on your application's logic
 
-        const form = document.getElementById('payment-form');
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const phone = document.getElementById('phone').value;
-            const address = document.getElementById('address').value;
-            const postalCode = document.getElementById('postal_code').value;
-
-            const totalAmount = 100;  // This should be dynamically calculated
-
-            // Step 1: Send order data and payment info to backend to create PaymentIntent
-            const response = await fetch('http://127.0.0.1:8000/api/v1/weekly/order/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    total_amount: totalAmount,
-                })
-            });
-
-            const data = await response.json();
-            const clientSecret = data.client_secret;
-
-            // Step 2: Complete the payment with Stripe
-            const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-                payment_method: { card: cardElement, billing_details: { name, email, phone, address, postal_code } }
-            });
-
-            if (error) {
-                console.error('Payment failed:', error.message);
-            } else {
-                if (paymentIntent.status === 'succeeded') {
-                    console.log('Payment successful:', paymentIntent.id);
-                    // Send the payment and order data to confirm the order
-                    await fetch('http://127.0.0.1:8000/api/v1/weekly/order/confirm-payment/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
+        paypal.Buttons({
+            // Create Order
+            createOrder: (data, actions) => {
+                console.log("Creating PayPal Order...");
+                console.log("Total amount: ", totalAmount);
+                
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: {
+                            value: totalAmount, // Use the globally defined totalAmount
                         },
-                        body: JSON.stringify({
-                            payment_status: 'success',
-                            stripe_payment_id: paymentIntent.id,
-                            order_data: [{
-                                day_of_week: "Saturday",
-                                number_of_people: 3,
-                                order_items: [{ product: 1, quantity: 2 }, { product: 4, quantity: 2 }]
-                            }],
-                            payment_info: { name, email, phone, address, postal_code }
-                        })
-                    }).then(response => {
-                        console.log('Order confirmed:', response.ok);
-                    }).catch(error => {
-                        console.error('Error confirming the order:', error);
-                    });
+                    }],
+                });
+            },
 
-                    alert('Payment successful! Your order has been confirmed.');
-                }
+            // On Approval
+            onApprove: async (data, actions) => {
+                console.log("OnApprove triggered...");
+
+                const order = await actions.order.capture();
+                console.log("Order captured:", order);
+
+                // Extract payment ID and payer ID from PayPal's response
+                const paymentId = data.paymentID; // PayPal payment ID
+                const payerId = data.payerID;     // PayPal payer ID
+
+                console.log('Payment ID:', paymentId);
+                console.log('Payer ID:', payerId);
+
+                // Send payment details to the backend to confirm payment
+                await fetch('http://127.0.0.1:8000/api/v1/weekly/order/paypal/confirm/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        paymentId: paymentId,
+                        PayerID: payerId,
+                        total_amount: totalAmount, // Dynamic amount based on the order
+                        order_data: [{
+                            "day_of_week": "Monday", // Example, replace with dynamic values
+                            "order_items": [{
+                                "product": 1, // Product ID
+                                "quantity": 2
+                            }],
+                            "number_of_people": 2
+                        }],
+                        payment_info: {
+                            "name": "John Doe",          // Replace with user's name
+                            "email": "johndoe@example.com", // Replace with user's email
+                            "phone": "+123456789",       // Replace with user's phone
+                            "address": "123 Main St",    // Replace with user's address
+                            "postal_code": "12345"       // Replace with user's postal code
+                        }
+                    })
+                })
+                .then(response => {
+                    console.log("Backend response status:", response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Payment confirmed:", data);
+                    alert('Payment confirmed successfully!');
+                })
+                .catch(error => {
+                    console.error('Error confirming payment:', error);
+                    alert('Error confirming payment!');
+                });
+            },
+
+            // On Error
+            onError: (err) => {
+                console.error('PayPal Error:', err);
+                alert('Error with PayPal payment.');
             }
-        });
+        }).render('#paypal-button-container');
     </script>
 </body>
 </html>

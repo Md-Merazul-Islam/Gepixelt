@@ -296,24 +296,30 @@ class WeeklyOrderCreateByPayPal(APIView):
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+        
+    
+# views.py
 
 class WeeklyOrderConfirmByPayPalPaymentView(APIView):
     def post(self, request, *args, **kwargs):
         try:
-            # Extract the payment details from the request
+            # Log the incoming request data for debugging
+            print("Incoming request data:", request.data)
+
             payment_id = request.data.get('paymentId')
             payer_id = request.data.get('PayerID')
-            token = request.data.get('token')
 
-            if not payment_id or not payer_id or not token:
+            if not payment_id or not payer_id:
                 return JsonResponse({"error": "Missing payment details"}, status=status.HTTP_400_BAD_REQUEST)
 
             # Find the payment using the PayPal API
             payment = paypalrestsdk.Payment.find(payment_id)
 
-            # Ensure the token matches (verify the session)
-            if payment.token == token:
+            # Log payment details for debugging
+            print("PayPal payment details:", payment)
+
+            # Ensure the payment state is 'COMPLETED'
+            if payment.state == "COMPLETED":
                 # Execute the payment using the payer_id to confirm the payment
                 if payment.execute({"payer_id": payer_id}):
                     # If payment is successful, process the order and create it in the database
@@ -323,6 +329,7 @@ class WeeklyOrderConfirmByPayPalPaymentView(APIView):
 
                     created_orders = []
                     for weekly_order_data in order_data:
+                        # Create the weekly order
                         weekly_order = WeeklyOrder.objects.create(
                             day_of_week=weekly_order_data['day_of_week'],
                             number_of_people=weekly_order_data['number_of_people'],
@@ -333,22 +340,19 @@ class WeeklyOrderConfirmByPayPalPaymentView(APIView):
                             customer_postal_code=payment_info['postal_code'],
                             total_amount=total_amount
                         )
-                        order_items = []
+
+                        # Create the order items
                         for item in weekly_order_data['order_items']:
                             product = Product.objects.get(id=item['product'])
-                            order_item = OrderItem.objects.create(
+                            OrderItem.objects.create(
                                 weekly_order=weekly_order,
                                 product=product,
                                 quantity=item['quantity']
                             )
-                            order_items.append({
-                                'product': product.name,
-                                'quantity': order_item.quantity,
-                            })
+
                         created_orders.append({
                             'day_of_week': weekly_order.day_of_week,
                             'number_of_people': weekly_order.number_of_people,
-                            'order_items': order_items,
                             'total_order_price': total_amount
                         })
 
@@ -358,13 +362,16 @@ class WeeklyOrderConfirmByPayPalPaymentView(APIView):
                         "total_week_price": total_amount
                     }, status=status.HTTP_201_CREATED)
                 else:
-                    return JsonResponse({"error": "Payment execution failed"}, status=status.HTTP_400_BAD_REQUEST)
+                    return JsonResponse({"error": "Payment execution failed."}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return JsonResponse({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+                # Log the actual payment state for debugging
+                print(f"Payment state: {payment.state}")
+                return JsonResponse({"error": f"Payment not approved by PayPal. Current state: {payment.state}"}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+        
 class WeeklyOrderExportToExcelView(APIView):
     def get(self, request, *args, **kwargs):
         today = now().date() 

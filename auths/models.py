@@ -8,15 +8,21 @@ now = timezone.now()
 class Role(models.TextChoices):
     ADMIN = 'admin', 'Admin'
     USER = 'user', 'User'
+    # BREAKER=
+
 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True, db_index=True)
     role = models.CharField(max_length=10, choices=Role.choices,
                             default=Role.USER, null=True, blank=True, db_index=True)
-    address = models.CharField(max_length=255, null=True, blank=True, db_index=True)
-    city = models.CharField(max_length=255, null=True, blank=True, db_index=True)
-    postal_code = models.CharField(max_length=255, null=True, blank=True, db_index=True)
-    phone_number = models.CharField(max_length=15, null=True, blank=True, db_index=True)
+    address = models.CharField(
+        max_length=255, null=True, blank=True, db_index=True)
+    city = models.CharField(max_length=255, null=True,
+                            blank=True, db_index=True)
+    postal_code = models.CharField(
+        max_length=255, null=True, blank=True, db_index=True)
+    phone_number = models.CharField(
+        max_length=15, null=True, blank=True, db_index=True)
     photo = models.CharField(max_length=255, blank=True, null=True)
     trial_status = models.BooleanField(default=True)
     USERNAME_FIELD = 'email'
@@ -24,9 +30,6 @@ class CustomUser(AbstractUser):
 
     def __str__(self):
         return self.email
-
-
-
 
 
 class UserProfile(models.Model):

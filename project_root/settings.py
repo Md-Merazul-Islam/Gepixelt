@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'orders',
     'dashboard',
     'weekorder',
+    'autoemail',
 
 
 
@@ -327,6 +328,7 @@ STRIPE_ENDPOINT_SECRET = os.getenv("STRIPE_ENDPOINT_SECRET")
 
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'  # Redis URL
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']  # Accept only JSON content
 CELERY_TASK_SERIALIZER = 'json'  # Task data serialization method
 CELERY_TIMEZONE = 'UTC'  # Timezone

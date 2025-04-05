@@ -28,6 +28,8 @@ urlpatterns = [
         path('orders/', include('orders.urls')),
         path('dashboard/', include('dashboard.urls')),
         path('weekly/', include('weekorder.urls')),
+        path('auto/', include('autoemail.urls')),
+        
         
     ])),
  ]

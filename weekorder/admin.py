@@ -9,7 +9,7 @@ class OrderItemInline(admin.TabularInline):
 
 # WeeklyOrderAdmin to manage WeeklyOrder and related OrderItems
 class WeeklyOrderAdmin(admin.ModelAdmin):
-    list_display = ('day_of_week', 'customer_name', 'customer_email', 'number_of_people', 'stripe_payment_id','total_amount')
+    list_display = ('day_of_week', 'customer_name', 'customer_email', 'number_of_people', 'stripe_payment_id','total_amount','order_date')
     search_fields = ('day_of_week', 'customer_name', 'customer_email')
     list_filter = ('day_of_week', 'number_of_people')
 

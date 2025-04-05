@@ -8,3 +8,10 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 app.conf.beat_scheduler = 'django_celery_beat.schedulers:DatabaseScheduler'
 multiprocessing.set_start_method('spawn', force=True)
+app.conf.update(
+    CELERY_WORKER_POOL = 'solo', 
+)
+
+@app.task(bind=True)
+def debug_task(self):
+    print('Request: {0!r}'.format(self.request))

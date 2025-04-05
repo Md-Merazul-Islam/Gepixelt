@@ -49,12 +49,11 @@
 
             const totalAmount = 100;  // This should be dynamically calculated
 
-            // Send order data and payment info to backend to create PaymentIntent
+            // Step 1: Send order data and payment info to backend to create PaymentIntent
             const response = await fetch('http://127.0.0.1:8000/api/v1/weekly/order/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    
                 },
                 body: JSON.stringify({
                     total_amount: totalAmount,
@@ -87,100 +86,19 @@
                                 day_of_week: "Saturday",
                                 number_of_people: 3,
                                 order_items: [{ product: 1, quantity: 2 }, { product: 4, quantity: 2 }]
-                            },
-                          ],
+                            }],
                             payment_info: { name, email, phone, address, postal_code }
                         })
-                        .then(response => {
-                            console.log('Order confirmed:', response.ok);
-                        })
-                        
+                    }).then(response => {
+                        console.log('Order confirmed:', response.ok);
+                    }).catch(error => {
+                        console.error('Error confirming the order:', error);
                     });
+
                     alert('Payment successful! Your order has been confirmed.');
-                    
                 }
             }
         });
     </script>
 </body>
 </html>
-
-
-
-<!-- 
-// Example of product data from the backend API (assuming you have fetched this data)
-const products = [
-    {
-        "id": 4,
-        "name": "Product 5",
-        "main_price": "9.20",
-        "price": 22.00,  // Selling price
-        "revenue": "12.80",
-        "description": "Product khoa and manush hou nahole marbo",
-        "image": "https://nyc3.digitaloceanspaces.com/smtech-space/uploads/Screenshot_2_1743009094_3331.png",
-        "category": 2
-    },
-    {
-        "id": 1,
-        "name": "Oren Hubbard",
-        "main_price": "381.00",
-        "price": 672.00,  // Selling price
-        "revenue": "291.00",
-        "description": "Et nesciunt est del",
-        "image": "https://nyc3.digitaloceanspaces.com/smtech-space/uploads/arno-senoner-oCXVxwTFwqE-unsplash_1743005485_8949.jpg",
-        "category": 5
-    }
-];
-
-// Example of order data coming from frontend (could be dynamic)
-const orderData = [
-    {
-        day_of_week: "Saturday",
-        number_of_people: 3,  // Number of people for this order
-        order_items: [
-            { product: 1, quantity: 2 },
-            { product: 4, quantity: 2 }
-        ]
-    },
-    {
-        day_of_week: "Monday",
-        number_of_people: 3,  // Number of people for this order
-        order_items: [
-            { product: 1, quantity: 2 },
-            { product: 4, quantity: 2 }
-        ]
-    }
-];
-
-// Function to calculate the total amount considering the number of people
-function calculateTotalAmount(orderData, products) {
-    let totalAmount = 0;
-
-    // Loop through each order in the order data
-    orderData.forEach(order => {
-        let totalDayAmount = 0;  // Total price for the specific day
-
-        // Loop through each item in the order
-        order.order_items.forEach(item => {
-            // Find the corresponding product from the products list
-            const product = products.find(p => p.id === item.product);
-
-            if (product) {
-                // Calculate the total price for the product per person
-                const itemTotalPrice = product.price * item.quantity;
-
-                // Multiply by the number of people
-                totalDayAmount += itemTotalPrice * order.number_of_people;  // Total for that item for all people
-            }
-        });
-
-        totalAmount += totalDayAmount;  // Add the day's total price to the total amount for all days
-    });
-
-    return totalAmount;
-}
-
-// Call the function to get the total amount
-const totalAmount = calculateTotalAmount(orderData, products);
-
-console.log("Total Amount:", totalAmount);  // Total amount for the entire order -->

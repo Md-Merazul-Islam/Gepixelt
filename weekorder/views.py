@@ -1,5 +1,6 @@
+import logging
 from django.http import JsonResponse
-from django.contrib.auth import  get_user_model
+from django.contrib.auth import get_user_model
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Sum
@@ -7,7 +8,7 @@ import pandas as pd
 from .serializers import WeeklyOrderListSerializer
 from .models import WeeklyOrder, OrderItem
 from django.http import HttpResponse
-from .serializers import  WeeklyOrderListSerializer
+from .serializers import WeeklyOrderListSerializer
 from .models import WeeklyOrder
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import ListAPIView
@@ -28,7 +29,7 @@ class WeeklyOrderCreateView(APIView):
             if total_amount is None or total_amount <= 0:
                 return Response({"error": "Invalid total amount."}, status=status.HTTP_400_BAD_REQUEST)
             payment_intent = stripe.PaymentIntent.create(
-                amount=int(total_amount * 100),  
+                amount=int(total_amount * 100),
                 currency='usd',
             )
             client_secret = payment_intent.client_secret
@@ -36,6 +37,7 @@ class WeeklyOrderCreateView(APIView):
                 'success': True,
                 'status': status.HTTP_200_OK,
                 'client_secret': client_secret,
+                
                 'message': 'Payment intent created successfully. Please complete the payment.'
             }, status=status.HTTP_200_OK)
 
@@ -43,6 +45,8 @@ class WeeklyOrderCreateView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+# Setup logger
+logger = logging.getLogger(__name__)
 
 
 class WeeklyOrderConfirmPaymentView(APIView):
@@ -52,6 +56,13 @@ class WeeklyOrderConfirmPaymentView(APIView):
             order_data = request.data.get('order_data')
             payment_info = request.data.get('payment_info')
             total_amount = request.data.get('total_amount')
+            
+             # Log the input data
+            logger.info("Received payment status: %s", payment_status)
+            logger.info("Received order data: %s", order_data)
+            logger.info("Received payment info: %s", payment_info)
+            logger.info("Received total amount: %s", total_amount)
+            # logger.info("Received Stripe payment ID: %s", stripe_payment_id)
 
             if payment_status != 'success':
                 return Response({"error": "Payment failed"}, status=status.HTTP_400_BAD_REQUEST)
@@ -89,7 +100,7 @@ class WeeklyOrderConfirmPaymentView(APIView):
                     'day_of_week': weekly_order.day_of_week,
                     'number_of_people': weekly_order.number_of_people,
                     'order_items': order_items,
-                    'total_order_price': total_amount  
+                    'total_order_price': total_amount
                 })
 
             return Response({
@@ -102,10 +113,10 @@ class WeeklyOrderConfirmPaymentView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class WeeklyOrderListView(ListAPIView):
-    queryset = WeeklyOrder.objects.all()  
+    queryset = WeeklyOrder.objects.all()
     serializer_class = WeeklyOrderListSerializer
+
     def get_queryset(self):
         """
         Optionally filter the orders based on query parameters (e.g., day_of_week).
@@ -116,6 +127,7 @@ class WeeklyOrderListView(ListAPIView):
             queryset = queryset.filter(day_of_week=day_of_week)
         return queryset
 
+
 class WeeklyOrderExportToExcelView(APIView):
     def get(self, request, *args, **kwargs):
         orders = WeeklyOrder.objects.prefetch_related('order_items_week')
@@ -125,7 +137,7 @@ class WeeklyOrderExportToExcelView(APIView):
             order_items = []
             for item in order.order_items_week.all():
                 product_str = f"{item.product.name} x {item.quantity}"
-                order_items.append(product_str)            
+                order_items.append(product_str)
             order_items_str = ', '.join(order_items)
             order_items_with_people = f"({order_items_str}) * {order.number_of_people}"
 
@@ -141,25 +153,23 @@ class WeeklyOrderExportToExcelView(APIView):
                 "Order Items": order_items_with_people,
             })
 
-        
         df = pd.DataFrame(data)
         response = HttpResponse(content_type='application/vnd.ms-excel')
         response['Content-Disposition'] = 'attachment; filename="weekly_orders.xlsx"'
 
-        
         with pd.ExcelWriter(response, engine='openpyxl') as writer:
             df.to_excel(writer, index=False)
             workbook = writer.book
             worksheet = workbook.active
-            worksheet.column_dimensions['A'].width = 10  
-            worksheet.column_dimensions['B'].width = 20  
-            worksheet.column_dimensions['C'].width = 5  
-            worksheet.column_dimensions['D'].width = 20  
-            worksheet.column_dimensions['E'].width = 40  
-            worksheet.column_dimensions['F'].width = 15  
-            worksheet.column_dimensions['G'].width = 50  
-            worksheet.column_dimensions['H'].width = 10  
-            worksheet.column_dimensions['I'].width = 60  
+            worksheet.column_dimensions['A'].width = 10
+            worksheet.column_dimensions['B'].width = 20
+            worksheet.column_dimensions['C'].width = 5
+            worksheet.column_dimensions['D'].width = 20
+            worksheet.column_dimensions['E'].width = 40
+            worksheet.column_dimensions['F'].width = 15
+            worksheet.column_dimensions['G'].width = 50
+            worksheet.column_dimensions['H'].width = 10
+            worksheet.column_dimensions['I'].width = 60
             worksheet.row_dimensions[1].height = 30
         return response
 
@@ -171,13 +181,17 @@ class OrderStatsView(APIView):
     def get(self, request, *args, **kwargs):
         today = timezone.now().date()
         total_users = User.objects.count()
-        total_customers = WeeklyOrder.objects.values('customer_email').distinct().count()
+        total_customers = WeeklyOrder.objects.values(
+            'customer_email').distinct().count()
         start_of_week = today - timedelta(days=today.weekday())
-        start_of_month = today.replace(day=1)  
-        start_of_year = today.replace(month=1, day=1)  
-        total_orders_week = WeeklyOrder.objects.filter(order_date__gte=start_of_week)
-        total_clients_week = total_orders_week.values('customer_email').distinct().count()
-        total_revenue_week = total_orders_week.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        start_of_month = today.replace(day=1)
+        start_of_year = today.replace(month=1, day=1)
+        total_orders_week = WeeklyOrder.objects.filter(
+            order_date__gte=start_of_week)
+        total_clients_week = total_orders_week.values(
+            'customer_email').distinct().count()
+        total_revenue_week = total_orders_week.aggregate(
+            Sum('total_amount'))['total_amount__sum'] or 0
         total_orders_month = WeeklyOrder.objects.filter(
             order_date__gte=start_of_month)
         total_clients_month = total_orders_month.values(
@@ -185,7 +199,6 @@ class OrderStatsView(APIView):
         total_revenue_month = total_orders_month.aggregate(
             Sum('total_amount'))['total_amount__sum'] or 0
 
-        
         total_orders_year = WeeklyOrder.objects.filter(
             order_date__gte=start_of_year)
         total_clients_year = total_orders_year.values(
@@ -193,12 +206,12 @@ class OrderStatsView(APIView):
         total_revenue_year = total_orders_year.aggregate(
             Sum('total_amount'))['total_amount__sum'] or 0
 
-        
         revenue_last_12_months = []
         for i in range(12):
-            month_idx = i + 1  
-            year_idx = today.year if month_idx <= today.month else today.year - 1  
-            start_of_month = today.replace(year=year_idx, month=month_idx, day=1)
+            month_idx = i + 1
+            year_idx = today.year if month_idx <= today.month else today.year - 1
+            start_of_month = today.replace(
+                year=year_idx, month=month_idx, day=1)
 
             if month_idx == 12:
                 end_of_month = today.replace(
@@ -211,12 +224,11 @@ class OrderStatsView(APIView):
                 Sum('total_amount'))['total_amount__sum'] or 0
 
             revenue_last_12_months.append({
-                
+
                 'month': start_of_month.strftime('%B %Y'),
                 'revenue': revenue_month
             })
 
-        
         response_data = {
             'total_users': total_users,
             'total_customers': total_customers,
@@ -247,7 +259,7 @@ class WeeklyOrderCreateByPayPal(APIView):
         try:
             total_amount = request.data.get('total_amount')
             if total_amount is None or total_amount <= 0:
-                return JsonResponse({"error": "Invalid total amount."}, status=status.HTTP_400_BAD_REQUEST)            
+                return JsonResponse({"error": "Invalid total amount."}, status=status.HTTP_400_BAD_REQUEST)
             payment = paypalrestsdk.Payment({
                 "intent": "sale",
                 "payer": {
@@ -271,17 +283,18 @@ class WeeklyOrderCreateByPayPal(APIView):
                     link.href for link in payment.links if link.rel == "approval_url")
 
                 return JsonResponse({
-                'status': 'success',
-                'message': 'Payment created successfully.',
-                'payment_id': payment.id,
-                'paypal_redirect_url': paypal_redirect_url,  
-                'message': 'Payment created. Please complete the payment via PayPal.'
-            }, status=status.HTTP_200_OK)
+                    'status': 'success',
+                    'message': 'Payment created successfully.',
+                    'payment_id': payment.id,
+                    'paypal_redirect_url': paypal_redirect_url,
+                    'message': 'Payment created. Please complete the payment via PayPal.'
+                }, status=status.HTTP_200_OK)
             else:
                 return JsonResponse({"error": "PayPal payment creation failed."}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class WeeklyOrderConfirmByPayPalPaymentView(APIView):
     def post(self, request, *args, **kwargs):
@@ -297,7 +310,7 @@ class WeeklyOrderConfirmByPayPalPaymentView(APIView):
             payer_id = request.data.get('paypal_payer_id')
             if not payment_id or not payer_id:
                 return JsonResponse({"error": "Missing payment or payer ID"}, status=status.HTTP_400_BAD_REQUEST)
-            
+
             payment = paypalrestsdk.Payment.find(payment_id)
             if payment.execute({"payer_id": payer_id}):
                 created_orders = []
